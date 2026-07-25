@@ -1,98 +1,111 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useVoiceStore } from "@/store/voiceStore";
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+import Header from "../components/layout/Header";
+import QuickAction from "../components/ui/QuickAction";
+import StatusBadge from "../components/ui/StatusBadge";
+import TranscriptCard from "../components/voice/TranscriptCard";
+import VoiceOrb from "../components/voice/VoiceOrb";
+
+export default function Home() {
+  const { state, transcript, setState, setTranscript } = useVoiceStore();
+
+  const handleVoicePress = () => {
+    setState("listening");
+
+    setTimeout(() => {
+      setTranscript("Schedule a meeting with Ali tomorrow at 3 PM");
+      setState("thinking");
+
+      setTimeout(() => {
+        setState("executing");
+
+        setTimeout(() => {
+          setState("success");
+
+          setTimeout(() => {
+            setState("idle");
+          }, 1500);
+        }, 2000);
+      }, 2000);
+    }, 3000);
+  };
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
+    <SafeAreaView
+      style={{
+        flex: 1,
+        backgroundColor: "#070B14",
+      }}
+    >
+      <View
+        style={{
+          flex: 1,
+          paddingHorizontal: 24,
+          paddingTop: 12,
+        }}
+      >
+        <Header greeting="Good Evening" name="Ateeq" />
+
+        <StatusBadge status={state === "idle" ? "ready" : state} />
+
+        <View
+          style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <VoiceOrb state={state} onPress={handleVoicePress} />
+
+          <View
+            style={{
+              alignItems: "center",
+              marginTop: 36,
+            }}
+          >
+            <Text
+              style={{
+                color: "#FFFFFF",
+                fontSize: 28,
+                fontWeight: "700",
+                textAlign: "center",
+              }}
+            >
+              How can I help today?
+            </Text>
+
+            <Text
+              style={{
+                color: "#94A3B8",
+                fontSize: 18,
+                marginTop: 12,
+                textAlign: "center",
+              }}
+            >
+              Tap the orb to start talking
+            </Text>
+
+            <View
+              style={{
+                flexDirection: "row",
+                flexWrap: "wrap",
+                justifyContent: "center",
+                marginTop: 30,
+                gap: 12,
+              }}
+            >
+              <QuickAction title="📅 Calendar" />
+              <QuickAction title="📧 Gmail" />
+              <QuickAction title="📝 Notes" />
+              <QuickAction title="🤖 Automate" />
+            </View>
+            <TranscriptCard transcript={transcript} />
+          </View>
+        </View>
+      </View>
+    </SafeAreaView>
   );
 }
-
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
-});
