@@ -2,15 +2,21 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Pressable, View } from "react-native";
 
 import { VoiceState } from "@/types/voice";
+
 import PulseRing from "./PulseRing";
 import RotatingRing from "./RotatingRing";
 
-type Props = {
+type VoiceOrbProps = {
   state?: VoiceState;
   onPress?: () => void;
+  size?: number;
 };
 
-export default function VoiceOrb({ state = "idle", onPress }: Props) {
+export default function VoiceOrb({
+  state = "idle",
+  onPress,
+  size = 240,
+}: VoiceOrbProps) {
   const config = {
     idle: {
       color: "#3B82F6",
@@ -36,43 +42,54 @@ export default function VoiceOrb({ state = "idle", onPress }: Props) {
 
   const current = config[state];
 
-  const color = current.color;
+  const outerRing = size * 1.08;
+  const middleRing = size * 0.95;
+  const innerRing = size * 0.82;
+
+  const shellSize = size * 0.88;
+  const buttonSize = size * 0.54;
+  const iconSize = size * 0.23;
 
   return (
     <View
       style={{
-        width: 260,
-        height: 260,
+        width: outerRing + 30,
+        height: outerRing + 30,
         justifyContent: "center",
         alignItems: "center",
       }}
     >
-      {current.pulse && <PulseRing size={240} color={current.color} />}
+      {current.pulse && <PulseRing size={size} color={current.color} />}
 
-      <RotatingRing size={255} color={current.color} duration={18000} />
+      <RotatingRing size={outerRing} color={current.color} duration={18000} />
 
-      <RotatingRing size={225} color={color} duration={12000} reverse />
+      <RotatingRing
+        size={middleRing}
+        color={current.color}
+        duration={12000}
+        reverse
+      />
 
-      <RotatingRing size={195} color={color} duration={8000} />
+      <RotatingRing size={innerRing} color={current.color} duration={8000} />
 
       <View
         style={{
-          width: 210,
-          height: 210,
-          borderRadius: 105,
+          width: shellSize,
+          height: shellSize,
+          borderRadius: shellSize / 2,
           borderWidth: 2,
           borderColor: current.color,
+          backgroundColor: current.color + "20",
           justifyContent: "center",
           alignItems: "center",
-          backgroundColor: current.color + "20",
         }}
       >
         <Pressable
           onPress={onPress}
           style={{
-            width: 130,
-            height: 130,
-            borderRadius: 65,
+            width: buttonSize,
+            height: buttonSize,
+            borderRadius: buttonSize / 2,
             backgroundColor: current.color,
             justifyContent: "center",
             alignItems: "center",
@@ -83,7 +100,11 @@ export default function VoiceOrb({ state = "idle", onPress }: Props) {
             elevation: 12,
           }}
         >
-          <MaterialCommunityIcons name="microphone" size={56} color="white" />
+          <MaterialCommunityIcons
+            name="microphone"
+            size={iconSize}
+            color="white"
+          />
         </Pressable>
       </View>
     </View>
