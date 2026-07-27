@@ -4,7 +4,6 @@ import { Dimensions, FlatList, Pressable, Text, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
-import AutomationScene from "@/components/onboarding/automation/AutomationScene";
 import OrbIllustration from "@/components/onboarding/OrbIllustration";
 import OrbitScene from "@/components/onboarding/OrbitScene";
 import PaginationDots from "@/components/onboarding/PaginationDots";
@@ -26,12 +25,6 @@ const slides = [
     subtitle:
       "Control Gmail, Calendar, Notes, Browser and more using only your voice.",
     illustration: <OrbitScene />,
-  },
-  {
-    id: "3",
-    title: "Automation Made Simple",
-    subtitle: "Speak once. Sit back while VoiAst takes care of your tasks.",
-    illustration: <AutomationScene />,
   },
 ];
 
