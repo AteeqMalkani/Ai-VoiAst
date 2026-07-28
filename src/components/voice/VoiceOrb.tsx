@@ -1,5 +1,15 @@
+import { useEffect } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Pressable, View } from "react-native";
+
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 
 import { VoiceColors, VoiceState } from "@/types/voice";
 
@@ -72,87 +82,166 @@ export default function VoiceOrb({
   const config = CONFIG[state];
   const colors = VoiceColors[state];
 
-  const outerRingSize = size * 1.08;
-  const middleRingSize = size * 0.95;
-  const innerRingSize = size * 0.82;
+  const outerRing = size * 1.08;
+  const middleRing = size * 0.95;
+  const innerRing = size * 0.82;
 
   const shellSize = size * 0.88;
   const buttonSize = size * 0.54;
   const iconSize = size * 0.23;
 
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    switch (state) {
+      case "idle":
+        scale.value = withRepeat(
+          withSequence(
+            withTiming(1.04, {
+              duration: 1800,
+              easing: Easing.inOut(Easing.ease),
+            }),
+            withTiming(1, {
+              duration: 1800,
+              easing: Easing.inOut(Easing.ease),
+            }),
+          ),
+          -1,
+          false,
+        );
+        break;
+
+      case "listening":
+        scale.value = withRepeat(
+          withSequence(
+            withTiming(1.1, { duration: 500 }),
+            withTiming(1, { duration: 500 }),
+          ),
+          -1,
+          false,
+        );
+        break;
+
+      case "thinking":
+        scale.value = withRepeat(
+          withSequence(
+            withTiming(1.06, { duration: 900 }),
+            withTiming(1, { duration: 900 }),
+          ),
+          -1,
+          false,
+        );
+        break;
+
+      case "executing":
+      case "speaking":
+        scale.value = withRepeat(
+          withSequence(
+            withTiming(1.12, { duration: 350 }),
+            withTiming(1, { duration: 350 }),
+          ),
+          -1,
+          false,
+        );
+        break;
+
+      case "success":
+        scale.value = withSequence(
+          withTiming(1.18, { duration: 350 }),
+          withTiming(1, { duration: 700 }),
+        );
+        break;
+    }
+  }, [state]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        scale: scale.value,
+      },
+    ],
+  }));
+
   return (
-    <View
-      style={{
-        width: outerRingSize + 30,
-        height: outerRingSize + 30,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      {config.pulse && <PulseRing size={size} color={colors.primary} />}
-
-      <RotatingRing
-        size={outerRingSize}
-        color={colors.primary}
-        duration={config.outerSpeed}
-      />
-
-      <RotatingRing
-        size={middleRingSize}
-        color={colors.secondary}
-        duration={config.middleSpeed}
-        reverse
-      />
-
-      <RotatingRing
-        size={innerRingSize}
-        color={colors.primary}
-        duration={config.innerSpeed}
-      />
-
+    <Animated.View style={animatedStyle}>
       <View
         style={{
-          width: shellSize,
-          height: shellSize,
-          borderRadius: shellSize / 2,
-          borderWidth: 2,
-          borderColor: colors.primary,
-          backgroundColor: `${colors.primary}20`,
+          width: outerRing + 30,
+          height: outerRing + 30,
           justifyContent: "center",
           alignItems: "center",
         }}
       >
-        <Pressable
-          onPress={onPress}
-          disabled={state !== "idle"}
-          hitSlop={12}
+        {config.pulse && <PulseRing size={size} color={colors.primary} />}
+
+        <RotatingRing
+          size={outerRing}
+          color={colors.primary}
+          duration={config.outerSpeed}
+        />
+
+        <RotatingRing
+          size={middleRing}
+          color={colors.secondary}
+          duration={config.middleSpeed}
+          reverse
+        />
+
+        <RotatingRing
+          size={innerRing}
+          color={colors.primary}
+          duration={config.innerSpeed}
+        />
+
+        <View
           style={{
-            width: buttonSize,
-            height: buttonSize,
-            borderRadius: buttonSize / 2,
+            width: shellSize,
+            height: shellSize,
+            borderRadius: shellSize / 2,
+            borderWidth: 2,
+            borderColor: colors.primary,
+            backgroundColor: `${colors.primary}20`,
             justifyContent: "center",
             alignItems: "center",
-            backgroundColor: colors.primary,
-
-            shadowColor: colors.primary,
-            shadowOffset: {
-              width: 0,
-              height: 0,
-            },
-            shadowOpacity: 0.7,
-            shadowRadius:
-              state === "listening" ? 34 : state === "thinking" ? 28 : 24,
-
-            elevation: 18,
           }}
         >
-          <MaterialCommunityIcons
-            name="microphone"
-            size={iconSize}
-            color="#FFFFFF"
-          />
-        </Pressable>
+          <Pressable
+            onPress={onPress}
+            disabled={state !== "idle"}
+            hitSlop={12}
+            style={{
+              width: buttonSize,
+              height: buttonSize,
+              borderRadius: buttonSize / 2,
+              justifyContent: "center",
+              alignItems: "center",
+              backgroundColor: colors.primary,
+
+              shadowColor: colors.primary,
+              shadowOffset: {
+                width: 0,
+                height: 0,
+              },
+              shadowOpacity: 0.8,
+              shadowRadius:
+                state === "listening"
+                  ? 36
+                  : state === "thinking"
+                    ? 30
+                    : state === "executing"
+                      ? 40
+                      : 24,
+              elevation: 18,
+            }}
+          >
+            <MaterialCommunityIcons
+              name="microphone"
+              size={iconSize}
+              color="#FFFFFF"
+            />
+          </Pressable>
+        </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
