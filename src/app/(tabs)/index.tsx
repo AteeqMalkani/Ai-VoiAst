@@ -3,15 +3,17 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useVoiceStore } from "@/store/voiceStore";
 
-import Header from "../../components/layout/Header";
-import QuickAction from "../../components/ui/QuickAction";
-import StatusBadge from "../../components/ui/StatusBadge";
+import { HeaderSettings } from "@/components/home/HeaderSettings";
+import Header from "@/components/layout/Header";
+import QuickAction from "@/components/ui/QuickAction";
+import StatusBadge from "@/components/ui/StatusBadge";
 
-import VoiceOrb from "../../components/voice/VoiceOrb";
-import TranscriptCard from "../../components/voice/TranscriptCard";
-import ThinkingCard from "../../components/voice/ThinkingCard";
-import ExecutionPlan from "../../components/voice/ExecutionPlan";
-import LastTaskCard from "../../components/voice/LastTaskCard";
+import ExecutionPlan from "@/components/voice/ExecutionPlan";
+import LastTaskCard from "@/components/voice/LastTaskCard";
+import ThinkingCard from "@/components/voice/ThinkingCard";
+import TranscriptCard from "@/components/voice/TranscriptCard";
+import VoiceOrb from "@/components/voice/VoiceOrb";
+import Waveform from "@/components/voice/Waveform";
 
 export default function Home() {
   const {
@@ -26,7 +28,8 @@ export default function Home() {
   } = useVoiceStore();
 
   const handleVoicePress = () => {
-    // Clear previous temporary UI
+    if (state !== "idle") return;
+
     setTranscript("");
     setExecutionSteps([]);
 
@@ -59,16 +62,17 @@ export default function Home() {
           });
 
           setTimeout(() => {
-            // Remove temporary cards
             setTranscript("");
             setExecutionSteps([]);
-
-            // Ready for next command
             setState("idle");
-          }, 1500);
-        }, 2000);
-      }, 1500);
-    }, 2500);
+          }, 1800);
+        }, 2200);
+      }, 1600);
+    }, 2200);
+  };
+
+  const handleOptionSelect = (option: string) => {
+    console.log(option);
   };
 
   return (
@@ -78,33 +82,56 @@ export default function Home() {
         backgroundColor: "#070B14",
       }}
     >
+      <HeaderSettings onSelectOption={handleOptionSelect} />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingHorizontal: 24,
-          paddingTop: 12,
-          paddingBottom: 40,
+          paddingTop: 10,
+          paddingBottom: 50,
         }}
       >
         <Header greeting="Good Evening" name="Ateeq" />
 
         <StatusBadge status={state === "idle" ? "ready" : state} />
 
+        {/* Hero Section */}
+
         <View
           style={{
             alignItems: "center",
-            marginTop: 35,
+            justifyContent: "center",
+            marginTop: 36,
           }}
         >
-          <VoiceOrb state={state} onPress={handleVoicePress} />
+          {/* Orb + Wave */}
+
+          <View
+            style={{
+              alignItems: "center",
+            }}
+          >
+            <VoiceOrb state={state} onPress={handleVoicePress} size={220} />
+
+            <View
+              style={{
+                marginTop: -22,
+              }}
+            >
+              <Waveform state={state} volume={0.6} />
+            </View>
+          </View>
+
+          {/* Heading */}
 
           <Text
             style={{
               color: "#FFFFFF",
-              fontSize: 28,
+              fontSize: 32,
               fontWeight: "700",
               textAlign: "center",
-              marginTop: 36,
+              marginTop: 22,
             }}
           >
             How can I help today?
@@ -114,12 +141,18 @@ export default function Home() {
             style={{
               color: "#94A3B8",
               fontSize: 17,
-              marginTop: 12,
+              lineHeight: 26,
               textAlign: "center",
+              marginTop: 10,
+              paddingHorizontal: 20,
             }}
           >
-            Tap the orb to start talking
+            Tap the orb and speak naturally.
+            {"\n"}
+            VoiAst will handle the rest.
           </Text>
+
+          {/* Quick Actions */}
 
           <View
             style={{
@@ -127,7 +160,7 @@ export default function Home() {
               flexWrap: "wrap",
               justifyContent: "center",
               gap: 12,
-              marginTop: 30,
+              marginTop: 32,
             }}
           >
             <QuickAction title="📅 Calendar" />
@@ -136,6 +169,8 @@ export default function Home() {
             <QuickAction title="🤖 Automate" />
           </View>
         </View>
+
+        {/* Voice Cards */}
 
         {transcript !== "" && <TranscriptCard transcript={transcript} />}
 

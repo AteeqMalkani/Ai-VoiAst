@@ -1,12 +1,12 @@
-import { View, Text } from "react-native";
+import { Text, View } from "react-native";
 
 type Status =
   | "ready"
   | "listening"
   | "thinking"
   | "executing"
-  | "success"
-  | "error";
+  | "speaking"
+  | "success";
 
 type StatusBadgeProps = {
   status: Status;
@@ -25,8 +25,12 @@ const config = {
     color: "#8B5CF6",
     text: "Thinking...",
   },
+  speaking: {
+    color: "#06B6D4",
+    text: "Speaking...",
+  },
   executing: {
-    color: "#F59E0B",
+    color: "#22C55E",
     text: "Executing...",
   },
   success: {

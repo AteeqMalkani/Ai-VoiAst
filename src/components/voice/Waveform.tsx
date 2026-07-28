@@ -1,146 +1,156 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect } from "react";
+import { View } from "react-native";
+
 import Animated, {
-  useAnimatedStyle,
+  Easing,
+  useAnimatedProps,
   useSharedValue,
   withRepeat,
   withTiming,
-  Easing,
-} from 'react-native-reanimated';
-import { Colors } from '@/theme';
-import { useTheme } from '@/hooks/use-theme';
+} from "react-native-reanimated";
 
-interface WaveformProps {
-  isAnimating: boolean;
-  volume?: number;      // Real-time audio volume (0 to 1)
-  barCount?: number;    // Number of visual bars in the waveform
-  color?: string;       // Custom bar color
-  maxBarHeight?: number; // Maximum height of the bars
-}
+import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
 
-export function Waveform({
-  isAnimating,
-  volume = 0,
-  barCount = 15,
-  color,
-  maxBarHeight = 50,
-}: WaveformProps) {
-  const theme = useTheme();
-  
-  // Shared time value to drive the continuous wave function
-  const waveTime = useSharedValue(0);
+import { VoiceState } from "@/types/voice";
+import { VoiceColors } from "@/types/voice";
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+
+const WIDTH = 300;
+const HEIGHT = 70;
+
+type WaveformProps = {
+  state: VoiceState;
+  volume?: number;
+};
+
+export default function Waveform({ state, volume = 0.5 }: WaveformProps) {
+  const time = useSharedValue(0);
 
   useEffect(() => {
-    if (isAnimating) {
-      // Loop a time counter continuously to drive sine wave offsets
-      waveTime.value = withRepeat(
-        withTiming(Math.PI * 2, {
-          duration: 1000,
-          easing: Easing.linear,
-        }),
-        -1,
-        false
-      );
-    } else {
-      waveTime.value = withTiming(0, { duration: 300 });
-    }
-  }, [isAnimating, waveTime]);
+    time.value = withRepeat(
+      withTiming(100000, {
+        duration: 900000,
+        easing: Easing.linear,
+      }),
+      -1,
+      false,
+    );
+  }, []);
 
-  const activeColor = color || theme.primary || Colors.light.primary;
+  const animatedProps = useAnimatedProps(() => {
+    const centerY = HEIGHT / 2;
 
-  // Create an array of bars and render them
-  return (
-    <View style={styles.container}>
-      {Array.from({ length: barCount }).map((_, index) => {
-        return (
-          <WaveBar
-            key={index}
-            index={index}
-            totalBars={barCount}
-            waveTime={waveTime}
-            volume={volume}
-            isAnimating={isAnimating}
-            color={activeColor}
-            maxBarHeight={maxBarHeight}
-          />
-        );
-      })}
-    </View>
-  );
-}
+    let path = `M 0 ${centerY}`;
 
-interface WaveBarProps {
-  index: number;
-  totalBars: number;
-  waveTime: Animated.SharedValue<number>;
-  volume: number;
-  isAnimating: boolean;
-  color: string;
-  maxBarHeight: number;
-}
+    // Voice state affects wave intensity
+    let amplitude = 10;
 
-function WaveBar({
-  index,
-  totalBars,
-  waveTime,
-  volume,
-  isAnimating,
-  color,
-  maxBarHeight,
-}: WaveBarProps) {
-  const minBarHeight = 4;
-  const barWidth = 4;
-  const barGap = 3;
+    switch (state) {
+      case "idle":
+        amplitude = 6;
+        break;
 
-  const animatedStyle = useAnimatedStyle(() => {
-    if (!isAnimating) {
-      return {
-        height: withTiming(minBarHeight),
-      };
+      case "listening":
+        amplitude = 16 + volume * 10;
+        break;
+
+      case "thinking":
+        amplitude = 11;
+        break;
+
+      case "executing":
+        amplitude = 14;
+        break;
+
+      case "success":
+        amplitude = 8;
+        break;
     }
 
-    // Phase offset so bars peak sequentially, creating a wave traversal effect
-    const phase = (index / totalBars) * Math.PI * 2;
-    // Base wave motion between 0.1 and 0.6
-    let amplitude = 0.25 + Math.sin(waveTime.value * 2 + phase) * 0.25;
+    for (let x = 0; x <= WIDTH; x += 2) {
+      const t = time.value;
 
-    // Scale up the wave based on microphone/audio volume input
-    if (volume > 0) {
-      amplitude += volume * 0.5;
+      const wave1 = Math.sin(t * 0.02 + x * 0.03) * amplitude;
+
+      const wave2 = Math.sin(t * 0.013 + x * 0.065) * (amplitude * 0.5);
+
+      const wave3 = Math.sin(t * 0.008 + x * 0.014) * (amplitude * 0.7);
+
+      const y = centerY + wave1 + wave2 + wave3;
+
+      const distance = Math.abs(x - WIDTH / 2) / (WIDTH / 2);
+
+      const strength = 1 - distance * 0.45;
+
+      const finalY = centerY + (y - centerY) * strength;
+
+      path += ` L ${x} ${finalY}`;
     }
-
-    // Cap the wave factor to maximum limits
-    const waveFactor = Math.min(Math.max(amplitude, 0.1), 1.0);
-    const targetHeight = minBarHeight + (maxBarHeight - minBarHeight) * waveFactor;
 
     return {
-      height: targetHeight,
+      d: path,
     };
   });
 
+  const current = VoiceColors[state];
+
   return (
-    <Animated.View
-      style={[
-        styles.bar,
-        animatedStyle,
-        {
-          width: barWidth,
-          marginHorizontal: barGap / 2,
-          backgroundColor: color,
-        },
-      ]}
-    />
+    <View
+      style={{
+        width: WIDTH,
+        height: HEIGHT,
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <Svg width={WIDTH} height={HEIGHT}>
+        <Defs>
+          <LinearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <Stop offset="0%" stopColor={current.primary} stopOpacity="0" />
+
+            <Stop offset="18%" stopColor={current.primary} stopOpacity="1" />
+
+            <Stop offset="50%" stopColor={current.secondary} stopOpacity="1" />
+
+            <Stop offset="82%" stopColor={current.primary} stopOpacity="1" />
+
+            <Stop offset="100%" stopColor={current.primary} stopOpacity="0" />
+          </LinearGradient>
+        </Defs>
+
+        {/* Glow */}
+
+        <AnimatedPath
+          animatedProps={animatedProps}
+          stroke="url(#gradient)"
+          strokeWidth={16}
+          strokeOpacity={0.08}
+          fill="none"
+          strokeLinecap="round"
+        />
+
+        {/* Soft Wave */}
+
+        <AnimatedPath
+          animatedProps={animatedProps}
+          stroke="url(#gradient)"
+          strokeWidth={8}
+          strokeOpacity={0.35}
+          fill="none"
+          strokeLinecap="round"
+        />
+
+        {/* Main Wave */}
+
+        <AnimatedPath
+          animatedProps={animatedProps}
+          stroke="url(#gradient)"
+          strokeWidth={3.5}
+          fill="none"
+          strokeLinecap="round"
+        />
+      </Svg>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 60,
-  },
-  bar: {
-    borderRadius: 2,
-  },
-});

@@ -1,12 +1,6 @@
-export type VoiceState =
-  | "idle"
-  | "listening"
-  | "thinking"
-  | "executing"
-  | "speaking"
-  | "success";
+import { VoiceState } from "@/types/voice";
 
-export const VoiceColors: Record<
+export const voiceColors: Record<
   VoiceState,
   {
     primary: string;
@@ -19,8 +13,8 @@ export const VoiceColors: Record<
   },
 
   listening: {
-    primary: "#22C55E",
-    secondary: "#4ADE80",
+    primary: "#60A5FA",
+    secondary: "#22D3EE",
   },
 
   thinking: {
@@ -29,13 +23,8 @@ export const VoiceColors: Record<
   },
 
   executing: {
-    primary: "#F59E0B",
-    secondary: "#FCD34D",
-  },
-
-  speaking: {
-    primary: "#38BDF8",
-    secondary: "#67E8F9",
+    primary: "#22C55E",
+    secondary: "#84CC16",
   },
 
   success: {
