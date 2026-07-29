@@ -1,5 +1,7 @@
 import { useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -9,11 +11,51 @@ import {
   View,
 } from "react-native";
 
-import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { resetPassword } from "../../services/auth"; // Adjust relative path as needed
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleResetPassword = async () => {
+    if (!email.trim()) {
+      Alert.alert("Validation Error", "Please enter your email address.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await resetPassword(email);
+      Alert.alert(
+        "Reset Link Sent",
+        "If an account exists with this email, a password reset link has been sent to your inbox.",
+        [
+          {
+            text: "Back to Sign In",
+            onPress: () => router.replace("/(auth)/login"),
+          },
+        ],
+      );
+    } catch (error: any) {
+      let message = "Failed to send reset email. Please try again.";
+
+      if (error.code === "auth/invalid-email") {
+        message = "Please enter a valid email address.";
+      } else if (error.code === "auth/user-not-found") {
+        // Firebase Auth security settings may swallow this, but handled if triggered
+        message = "No account found with this email address.";
+      } else if (error.code === "auth/too-many-requests") {
+        message = "Too many reset attempts. Please try again later.";
+      }
+
+      Alert.alert("Error", message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -33,7 +75,6 @@ export default function ForgotPassword() {
         }}
       >
         {/* Back */}
-
         <Pressable
           onPress={() => router.back()}
           style={{
@@ -49,12 +90,7 @@ export default function ForgotPassword() {
         </Pressable>
 
         {/* Header */}
-
-        <View
-          style={{
-            marginTop: 40,
-          }}
-        >
+        <View style={{ marginTop: 40 }}>
           <Text
             style={{
               color: "white",
@@ -77,17 +113,13 @@ export default function ForgotPassword() {
           </Text>
         </View>
 
-        {/* Email */}
-
-        <View
-          style={{
-            marginTop: 50,
-          }}
-        >
+        {/* Email Input */}
+        <View style={{ marginTop: 50 }}>
           <Text
             style={{
               color: "#CBD5E1",
               marginBottom: 10,
+              fontSize: 15,
             }}
           >
             Email
@@ -100,6 +132,7 @@ export default function ForgotPassword() {
             autoCapitalize="none"
             placeholder="Enter your email"
             placeholderTextColor="#64748B"
+            editable={!loading}
             style={{
               height: 58,
               borderRadius: 18,
@@ -108,35 +141,41 @@ export default function ForgotPassword() {
               borderColor: "#1E293B",
               color: "white",
               paddingHorizontal: 18,
+              fontSize: 16,
             }}
           />
         </View>
 
-        {/* Button */}
-
+        {/* Submit Button */}
         <Pressable
+          onPress={handleResetPassword}
+          disabled={loading}
           style={{
             marginTop: 40,
             height: 58,
             borderRadius: 18,
-            backgroundColor: "#5B8CFF",
+            backgroundColor: loading ? "#3B82F6" : "#5B8CFF",
             justifyContent: "center",
             alignItems: "center",
+            opacity: loading ? 0.7 : 1,
           }}
         >
-          <Text
-            style={{
-              color: "white",
-              fontWeight: "700",
-              fontSize: 18,
-            }}
-          >
-            Send Reset Link
-          </Text>
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text
+              style={{
+                color: "white",
+                fontWeight: "700",
+                fontSize: 18,
+              }}
+            >
+              Send Reset Link
+            </Text>
+          )}
         </Pressable>
 
         {/* Footer */}
-
         <Pressable
           onPress={() => router.replace("/(auth)/login")}
           style={{

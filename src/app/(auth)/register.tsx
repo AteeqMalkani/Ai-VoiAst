@@ -1,5 +1,7 @@
 import { useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -9,12 +11,99 @@ import {
   View,
 } from "react-native";
 
-import { router } from "expo-router";
+import { register } from "@/services/auth";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
 export default function Register() {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const handleRegister = async () => {
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (!trimmedName) {
+      Alert.alert("Validation Error", "Please enter your full name.");
+      return;
+    }
+
+    if (!trimmedEmail) {
+      Alert.alert("Validation Error", "Please enter your email address.");
+      return;
+    }
+
+    if (!password) {
+      Alert.alert("Validation Error", "Please enter a password.");
+      return;
+    }
+
+    if (password.length < 8) {
+      Alert.alert(
+        "Validation Error",
+        "Password must be at least 8 characters long.",
+      );
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert("Validation Error", "Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // 1. Create user in Firebase
+      await register(trimmedName, trimmedEmail, password);
+
+      // 2. Notify the user and navigate upon dismissal
+      Alert.alert(
+        "User Created Successfully",
+        "Your account has been created. Please sign in to continue.",
+        [
+          {
+            text: "Go to Login",
+            onPress: () => {
+              router.dismissAll();
+              router.replace("/(auth)/login");
+            },
+          },
+        ],
+        { cancelable: false },
+      );
+    } catch (error: any) {
+      let message = "Something went wrong. Please try again.";
+
+      switch (error.code) {
+        case "auth/email-already-in-use":
+          message = "An account with this email already exists.";
+          break;
+
+        case "auth/invalid-email":
+          message = "Please enter a valid email address.";
+          break;
+
+        case "auth/weak-password":
+          message = "Password is too weak.";
+          break;
+
+        case "auth/network-request-failed":
+          message = "Please check your internet connection.";
+          break;
+      }
+
+      Alert.alert("Registration Failed", message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -33,8 +122,7 @@ export default function Register() {
           paddingBottom: 30,
         }}
       >
-        {/* Back */}
-
+        {/* Back Button */}
         <Pressable
           onPress={() => router.back()}
           style={{
@@ -50,7 +138,6 @@ export default function Register() {
         </Pressable>
 
         {/* Header */}
-
         <View style={{ marginTop: 40 }}>
           <Text
             style={{
@@ -75,7 +162,6 @@ export default function Register() {
         </View>
 
         {/* Full Name */}
-
         <View style={{ marginTop: 45 }}>
           <Text
             style={{
@@ -87,8 +173,15 @@ export default function Register() {
           </Text>
 
           <TextInput
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="words"
+            autoCorrect={false}
+            textContentType="name"
+            autoComplete="name"
             placeholder="Enter your full name"
             placeholderTextColor="#64748B"
+            editable={!loading}
             style={{
               height: 58,
               borderRadius: 18,
@@ -97,12 +190,12 @@ export default function Register() {
               borderColor: "#1E293B",
               color: "white",
               paddingHorizontal: 18,
+              fontSize: 16,
             }}
           />
         </View>
 
         {/* Email */}
-
         <View style={{ marginTop: 22 }}>
           <Text
             style={{
@@ -114,10 +207,16 @@ export default function Register() {
           </Text>
 
           <TextInput
+            value={email}
+            onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="emailAddress"
+            autoComplete="email"
             placeholder="Enter your email"
             placeholderTextColor="#64748B"
+            editable={!loading}
             style={{
               height: 58,
               borderRadius: 18,
@@ -126,12 +225,12 @@ export default function Register() {
               borderColor: "#1E293B",
               color: "white",
               paddingHorizontal: 18,
+              fontSize: 16,
             }}
           />
         </View>
 
         {/* Password */}
-
         <View style={{ marginTop: 22 }}>
           <Text
             style={{
@@ -155,12 +254,20 @@ export default function Register() {
             }}
           >
             <TextInput
+              value={password}
+              onChangeText={setPassword}
               secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="newPassword"
+              autoComplete="new-password"
               placeholder="Create a password"
               placeholderTextColor="#64748B"
+              editable={!loading}
               style={{
                 flex: 1,
                 color: "white",
+                fontSize: 16,
               }}
             />
 
@@ -175,7 +282,6 @@ export default function Register() {
         </View>
 
         {/* Confirm Password */}
-
         <View style={{ marginTop: 22 }}>
           <Text
             style={{
@@ -199,12 +305,20 @@ export default function Register() {
             }}
           >
             <TextInput
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
               secureTextEntry={!showConfirmPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="password"
+              autoComplete="new-password"
               placeholder="Confirm your password"
               placeholderTextColor="#64748B"
+              editable={!loading}
               style={{
                 flex: 1,
                 color: "white",
+                fontSize: 16,
               }}
             />
 
@@ -221,8 +335,9 @@ export default function Register() {
         </View>
 
         {/* Register Button */}
-
         <Pressable
+          onPress={handleRegister}
+          disabled={loading}
           style={{
             marginTop: 40,
             height: 58,
@@ -230,21 +345,25 @@ export default function Register() {
             backgroundColor: "#5B8CFF",
             justifyContent: "center",
             alignItems: "center",
+            opacity: loading ? 0.7 : 1,
           }}
         >
-          <Text
-            style={{
-              color: "white",
-              fontSize: 18,
-              fontWeight: "700",
-            }}
-          >
-            Create Account
-          </Text>
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text
+              style={{
+                color: "white",
+                fontSize: 18,
+                fontWeight: "700",
+              }}
+            >
+              Create Account
+            </Text>
+          )}
         </Pressable>
 
         {/* Footer */}
-
         <View
           style={{
             marginTop: 40,

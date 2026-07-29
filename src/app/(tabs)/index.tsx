@@ -1,6 +1,7 @@
 import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useAuth } from "@/hooks/useAuth";
 import { useVoiceStore } from "@/store/voiceStore";
 
 import { HeaderSettings } from "@/components/home/HeaderSettings";
@@ -16,6 +17,8 @@ import VoiceOrb from "@/components/voice/VoiceOrb";
 import Waveform from "@/components/voice/Waveform";
 
 export default function Home() {
+  const { user } = useAuth();
+
   const {
     state,
     transcript,
@@ -75,6 +78,8 @@ export default function Home() {
     console.log(option);
   };
 
+  const username = user?.displayName || user?.email?.split("@")[0] || "User";
+
   return (
     <SafeAreaView
       style={{
@@ -92,7 +97,7 @@ export default function Home() {
           paddingBottom: 50,
         }}
       >
-        <Header greeting="Good Evening" name="Ateeq" />
+        <Header greeting="Good Evening" name={username} />
 
         <StatusBadge status={state === "idle" ? "ready" : state} />
 

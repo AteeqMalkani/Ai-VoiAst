@@ -1,5 +1,7 @@
 import { useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -9,21 +11,71 @@ import {
   View,
 } from "react-native";
 
+import { login } from "@/services/auth";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
 export default function Login() {
-  const [email, setEmail] = useState("Ateeq@gmail.com");
-  const [password, setPassword] = useState("123456");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
+  const [loading, setLoading] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [remember, setRemember] = useState(true);
 
-  const handleLogin = () => {
-    if (email === "Ateeq@gmail.com" && password === "12") {
+  const handleLogin = async () => {
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (!trimmedEmail || !password) {
+      Alert.alert(
+        "Validation Error",
+        "Please enter both your email and password.",
+      );
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await login(trimmedEmail, password);
+
+      setPassword("");
+
       router.replace("/(tabs)");
-    } else {
-      alert("Invalid demo credentials");
+    } catch (error: any) {
+      setPassword("");
+
+      let message = "Something went wrong. Please try again.";
+
+      switch (error.code) {
+        case "auth/invalid-credential":
+          message = "Invalid email or password.";
+          break;
+
+        case "auth/user-not-found":
+          message = "No account exists with this email.";
+          break;
+
+        case "auth/wrong-password":
+          message = "Incorrect password.";
+          break;
+
+        case "auth/invalid-email":
+          message = "Please enter a valid email address.";
+          break;
+
+        case "auth/network-request-failed":
+          message = "Please check your internet connection.";
+          break;
+
+        case "auth/too-many-requests":
+          message = "Too many failed attempts. Please try again later.";
+          break;
+      }
+
+      Alert.alert("Login Failed", message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -45,7 +97,6 @@ export default function Login() {
         keyboardShouldPersistTaps="handled"
       >
         {/* Back Button */}
-
         <Pressable
           onPress={() => router.back()}
           style={{
@@ -61,12 +112,7 @@ export default function Login() {
         </Pressable>
 
         {/* Heading */}
-
-        <View
-          style={{
-            marginTop: 40,
-          }}
-        >
+        <View style={{ marginTop: 40 }}>
           <Text
             style={{
               color: "white",
@@ -90,12 +136,7 @@ export default function Login() {
         </View>
 
         {/* Email */}
-
-        <View
-          style={{
-            marginTop: 50,
-          }}
-        >
+        <View style={{ marginTop: 50 }}>
           <Text
             style={{
               color: "#CBD5E1",
@@ -109,8 +150,14 @@ export default function Login() {
           <TextInput
             value={email}
             onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            textContentType="emailAddress"
             placeholder="Enter your email"
             placeholderTextColor="#64748B"
+            editable={!loading}
             style={{
               height: 58,
               borderRadius: 18,
@@ -125,12 +172,7 @@ export default function Login() {
         </View>
 
         {/* Password */}
-
-        <View
-          style={{
-            marginTop: 24,
-          }}
-        >
+        <View style={{ marginTop: 24 }}>
           <Text
             style={{
               color: "#CBD5E1",
@@ -157,8 +199,13 @@ export default function Login() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!passwordVisible}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="password"
+              textContentType="password"
               placeholder="Enter your password"
               placeholderTextColor="#64748B"
+              editable={!loading}
               style={{
                 flex: 1,
                 color: "white",
@@ -177,7 +224,6 @@ export default function Login() {
         </View>
 
         {/* Remember & Forgot */}
-
         <View
           style={{
             marginTop: 20,
@@ -187,6 +233,7 @@ export default function Login() {
           }}
         >
           <Pressable
+            disabled={loading}
             onPress={() => setRemember(!remember)}
             style={{
               flexDirection: "row",
@@ -209,7 +256,10 @@ export default function Login() {
             </Text>
           </Pressable>
 
-          <Pressable onPress={() => router.push("/(auth)/forgot-password")}>
+          <Pressable
+            onPress={() => router.push("/(auth)/forgot-password")}
+            disabled={loading}
+          >
             <Text
               style={{
                 color: "#5B8CFF",
@@ -221,10 +271,10 @@ export default function Login() {
           </Pressable>
         </View>
 
-        {/* Sign In */}
-
+        {/* Sign In Button */}
         <Pressable
           onPress={handleLogin}
+          disabled={loading}
           style={{
             marginTop: 40,
             height: 58,
@@ -232,21 +282,25 @@ export default function Login() {
             backgroundColor: "#5B8CFF",
             justifyContent: "center",
             alignItems: "center",
+            opacity: loading ? 0.7 : 1,
           }}
         >
-          <Text
-            style={{
-              color: "white",
-              fontWeight: "700",
-              fontSize: 18,
-            }}
-          >
-            Sign In
-          </Text>
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text
+              style={{
+                color: "white",
+                fontWeight: "700",
+                fontSize: 18,
+              }}
+            >
+              Sign In
+            </Text>
+          )}
         </Pressable>
 
         {/* Divider */}
-
         <View
           style={{
             flexDirection: "row",
@@ -281,7 +335,6 @@ export default function Login() {
         </View>
 
         {/* Google */}
-
         <Pressable
           style={{
             height: 58,
@@ -308,7 +361,6 @@ export default function Login() {
         </Pressable>
 
         {/* Footer */}
-
         <View
           style={{
             flexDirection: "row",
