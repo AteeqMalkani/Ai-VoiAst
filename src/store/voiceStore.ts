@@ -1,47 +1,43 @@
-import { VoiceState } from "@/types/voice";
 import { create } from "zustand";
+import { VoiceState } from "@/types/voice";
 
-export type CompletedTask = {
+export interface TaskItem {
+  id: string;
   title: string;
-  status: "completed";
+  status: "completed" | "failed" | "in_progress";
   completedAt: string;
-};
+}
 
-type VoiceStore = {
+interface VoiceStoreState {
   state: VoiceState;
   transcript: string;
   executionSteps: string[];
-  lastTask: CompletedTask | null;
+  lastTask: TaskItem | null;
 
   setState: (state: VoiceState) => void;
-  setTranscript: (text: string) => void;
+  setTranscript: (transcript: string) => void;
+  addExecutionStep: (step: string) => void;
   setExecutionSteps: (steps: string[]) => void;
-  setLastTask: (task: CompletedTask | null) => void;
-};
+  setLastTask: (task: TaskItem | null) => void;
+  resetVoiceState: () => void;
+}
 
-export const useVoiceStore = create<VoiceStore>((set) => ({
+export const useVoiceStore = create<VoiceStoreState>((set) => ({
   state: "idle",
   transcript: "",
   executionSteps: [],
   lastTask: null,
 
-  setState: (state) =>
+  setState: (state) => set({ state }),
+  setTranscript: (transcript) => set({ transcript }),
+  addExecutionStep: (step) =>
+    set((prev) => ({ executionSteps: [...prev.executionSteps, step] })),
+  setExecutionSteps: (executionSteps) => set({ executionSteps }),
+  setLastTask: (lastTask) => set({ lastTask }),
+  resetVoiceState: () =>
     set({
-      state,
-    }),
-
-  setTranscript: (text) =>
-    set({
-      transcript: text,
-    }),
-
-  setExecutionSteps: (steps) =>
-    set({
-      executionSteps: steps,
-    }),
-
-  setLastTask: (task) =>
-    set({
-      lastTask: task,
+      state: "idle",
+      transcript: "",
+      executionSteps: [],
     }),
 }));

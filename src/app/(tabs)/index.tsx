@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -17,7 +18,7 @@ import VoiceOrb from "@/components/voice/VoiceOrb";
 import Waveform from "@/components/voice/Waveform";
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   const {
     state,
@@ -25,68 +26,47 @@ export default function Home() {
     executionSteps,
     lastTask,
     setState,
-    setTranscript,
-    setExecutionSteps,
-    setLastTask,
+    resetVoiceState,
   } = useVoiceStore();
 
-  const handleVoicePress = () => {
-    if (state !== "idle") return;
+  const handleVoicePress = async () => {
+    if (state === "idle") {
+      // Clear previous execution state and start listening
+      resetVoiceState();
+      setState("listening");
 
-    setTranscript("");
-    setExecutionSteps([]);
+      // TODO: Call your Speech Recognition start engine here
+      // e.g. Voice.start('en-US');
+      return;
+    }
 
-    setState("listening");
-
-    setTimeout(() => {
-      setTranscript("Schedule a meeting with Ali tomorrow at 3 PM");
+    if (state === "listening") {
+      // Signal speech engine that the user finished speaking
       setState("thinking");
 
-      setTimeout(() => {
-        setExecutionSteps([
-          "Open Google Calendar",
-          "Create a new event",
-          "Invite Ali",
-          "Add a reminder",
-        ]);
-
-        setState("executing");
-
-        setTimeout(() => {
-          setState("success");
-
-          setLastTask({
-            title: "Schedule meeting with Ali",
-            status: "completed",
-            completedAt: new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-          });
-
-          setTimeout(() => {
-            setTranscript("");
-            setExecutionSteps([]);
-            setState("idle");
-          }, 1800);
-        }, 2200);
-      }, 1600);
-    }, 2200);
+      // TODO: Send captured audio / transcript to your AI Agent / Backend pipeline
+      // e.g. await processVoiceCommand(liveTranscript);
+    }
   };
 
-  const handleOptionSelect = (option: string) => {
-    console.log(option);
+  const handleOptionSelect = async (option: string) => {
+    if (option === "logout") {
+      try {
+        if (signOut) await signOut();
+      } catch (error) {
+        console.error("Error signing out:", error);
+      } finally {
+        router.replace("/(auth)/login");
+      }
+    } else {
+      router.push(`/settings/${option.replace("_", "-")}` as any);
+    }
   };
 
   const username = user?.displayName || user?.email?.split("@")[0] || "User";
 
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        backgroundColor: "#070B14",
-      }}
-    >
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#070B14" }}>
       <HeaderSettings onSelectOption={handleOptionSelect} />
 
       <ScrollView
@@ -102,7 +82,6 @@ export default function Home() {
         <StatusBadge status={state === "idle" ? "ready" : state} />
 
         {/* Hero Section */}
-
         <View
           style={{
             alignItems: "center",
@@ -110,25 +89,12 @@ export default function Home() {
             marginTop: 36,
           }}
         >
-          {/* Orb + Wave */}
-
-          <View
-            style={{
-              alignItems: "center",
-            }}
-          >
+          <View style={{ alignItems: "center" }}>
             <VoiceOrb state={state} onPress={handleVoicePress} size={220} />
-
-            <View
-              style={{
-                marginTop: -22,
-              }}
-            >
+            <View style={{ marginTop: -22 }}>
               <Waveform state={state} volume={0.6} />
             </View>
           </View>
-
-          {/* Heading */}
 
           <Text
             style={{
@@ -152,13 +118,12 @@ export default function Home() {
               paddingHorizontal: 20,
             }}
           >
-            Tap the orb and speak naturally.
-            {"\n"}
-            VoiAst will handle the rest.
+            {state === "listening"
+              ? "Listening... Tap the orb again when finished."
+              : "Tap the orb and speak naturally.\nVoiAst will handle the rest."}
           </Text>
 
           {/* Quick Actions */}
-
           <View
             style={{
               flexDirection: "row",
@@ -175,17 +140,20 @@ export default function Home() {
           </View>
         </View>
 
-        {/* Voice Cards */}
-
-        {transcript !== "" && <TranscriptCard transcript={transcript} />}
+        {/* Dynamic Voice Cards */}
+        {Boolean(transcript) && <TranscriptCard transcript={transcript} />}
 
         <ThinkingCard visible={state === "thinking"} />
 
         <ExecutionPlan
-          visible={state === "executing" || state === "success"}
+          visible={
+            (state === "executing" || state === "success") &&
+            executionSteps.length > 0
+          }
           steps={executionSteps}
         />
 
+        {/* Dynamic Task Card generated upon completion */}
         {state === "idle" && lastTask && <LastTaskCard task={lastTask} />}
       </ScrollView>
     </SafeAreaView>

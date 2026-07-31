@@ -7,7 +7,7 @@ type TaskCardProps = {
   task: Task;
 };
 
-export default function TaskCard({ task }: TaskCardProps) {
+export function TaskCard({ task }: TaskCardProps) {
   const statusConfig = {
     pending: {
       icon: "clock-outline",
@@ -31,7 +31,18 @@ export default function TaskCard({ task }: TaskCardProps) {
     },
   };
 
-  const current = statusConfig[task.status];
+  const current = statusConfig[task.status] || statusConfig.pending;
+
+  // Safe formatting for createdAt string/number/Date
+  const formatTime = (dateInput: string | number | Date) => {
+    if (!dateInput) return "";
+    const parsedDate = new Date(dateInput);
+    if (isNaN(parsedDate.getTime())) return String(dateInput);
+    return parsedDate.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   return (
     <View
@@ -58,6 +69,7 @@ export default function TaskCard({ task }: TaskCardProps) {
             fontSize: 17,
             fontWeight: "700",
             flex: 1,
+            marginRight: 12,
           }}
         >
           {task.title}
@@ -107,6 +119,7 @@ export default function TaskCard({ task }: TaskCardProps) {
           marginTop: 16,
           flexDirection: "row",
           justifyContent: "space-between",
+          alignItems: "center",
         }}
       >
         <Text
@@ -124,10 +137,7 @@ export default function TaskCard({ task }: TaskCardProps) {
             fontSize: 13,
           }}
         >
-          {new Date(task.createdAt).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+          {formatTime(task.createdAt)}
         </Text>
       </View>
     </View>

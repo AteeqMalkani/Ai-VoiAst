@@ -162,6 +162,10 @@ export default function VoiceOrb({
     ],
   }));
 
+  // Only disable press interactions while AI is actively processing or speaking
+  const isBusy =
+    state === "thinking" || state === "executing" || state === "speaking";
+
   return (
     <Animated.View style={animatedStyle}>
       <View
@@ -207,7 +211,7 @@ export default function VoiceOrb({
         >
           <Pressable
             onPress={onPress}
-            disabled={state !== "idle"}
+            disabled={isBusy} // 👈 FIXED: Allows second tap while listening!
             hitSlop={12}
             style={{
               width: buttonSize,
@@ -235,7 +239,7 @@ export default function VoiceOrb({
             }}
           >
             <MaterialCommunityIcons
-              name="microphone"
+              name={state === "listening" ? "stop" : "microphone"}
               size={iconSize}
               color="#FFFFFF"
             />
