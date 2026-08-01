@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "255166202632",
+    "firebase_url": "https://voiast-default-rtdb.firebaseio.com",
+    "project_id": "voiast",
+    "storage_bucket": "voiast.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:255166202632:android:a1b6a927b241de61b1a2bd",
+        "android_client_info": {
+          "package_name": "com.malkani.VoiAst"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "255166202632-p4p1lskq71bqrhqc03i9huabasja11gc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBaJiklfvElGucdmmlLFQAh-zewZj1wL9w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "255166202632-p4p1lskq71bqrhqc03i9huabasja11gc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -15,6 +15,8 @@
       }
     },
     "android": {
+      "package": "com.malkani.VoiAst",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -45,7 +47,14 @@
       ],
       "expo-audio",
       "expo-secure-store",
-      "expo-speech-recognition"
+      "expo-speech-recognition",
+      "expo-web-browser",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.YOUR_IOS_CLIENT_ID"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

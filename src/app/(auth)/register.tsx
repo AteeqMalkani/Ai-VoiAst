@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 
-import { register } from "@/services/auth";
+import { register, registerWithGoogle } from "@/services/auth";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
@@ -22,6 +22,7 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -105,6 +106,22 @@ export default function Register() {
     }
   };
 
+  const handleGoogleRegister = async () => {
+    setGoogleLoading(true);
+    try {
+      await registerWithGoogle();
+      router.replace("/(tabs)");
+    } catch (error: any) {
+      Alert.alert(
+        "Registration Failed",
+        error?.message ||
+          "Could not complete Google Sign-Up. Please try again.",
+      );
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={{
@@ -181,7 +198,7 @@ export default function Register() {
             autoComplete="name"
             placeholder="Enter your full name"
             placeholderTextColor="#64748B"
-            editable={!loading}
+            editable={!loading && !googleLoading}
             style={{
               height: 58,
               borderRadius: 18,
@@ -216,7 +233,7 @@ export default function Register() {
             autoComplete="email"
             placeholder="Enter your email"
             placeholderTextColor="#64748B"
-            editable={!loading}
+            editable={!loading && !googleLoading}
             style={{
               height: 58,
               borderRadius: 18,
@@ -263,7 +280,7 @@ export default function Register() {
               autoComplete="new-password"
               placeholder="Create a password"
               placeholderTextColor="#64748B"
-              editable={!loading}
+              editable={!loading && !googleLoading}
               style={{
                 flex: 1,
                 color: "white",
@@ -314,7 +331,7 @@ export default function Register() {
               autoComplete="new-password"
               placeholder="Confirm your password"
               placeholderTextColor="#64748B"
-              editable={!loading}
+              editable={!loading && !googleLoading}
               style={{
                 flex: 1,
                 color: "white",
@@ -337,7 +354,7 @@ export default function Register() {
         {/* Register Button */}
         <Pressable
           onPress={handleRegister}
-          disabled={loading}
+          disabled={loading || googleLoading}
           style={{
             marginTop: 40,
             height: 58,
@@ -360,6 +377,75 @@ export default function Register() {
             >
               Create Account
             </Text>
+          )}
+        </Pressable>
+
+        {/* Divider */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            marginVertical: 32,
+          }}
+        >
+          <View
+            style={{
+              flex: 1,
+              height: 1,
+              backgroundColor: "#1E293B",
+            }}
+          />
+
+          <Text
+            style={{
+              color: "#64748B",
+              marginHorizontal: 14,
+            }}
+          >
+            OR
+          </Text>
+
+          <View
+            style={{
+              flex: 1,
+              height: 1,
+              backgroundColor: "#1E293B",
+            }}
+          />
+        </View>
+
+        {/* Register with Google Button */}
+        <Pressable
+          onPress={handleGoogleRegister}
+          disabled={loading || googleLoading}
+          style={{
+            height: 58,
+            borderRadius: 18,
+            borderWidth: 1,
+            borderColor: "#1E293B",
+            justifyContent: "center",
+            alignItems: "center",
+            flexDirection: "row",
+            backgroundColor: "transparent",
+            opacity: googleLoading ? 0.7 : 1,
+          }}
+        >
+          {googleLoading ? (
+            <ActivityIndicator color="#EA4335" />
+          ) : (
+            <>
+              <MaterialCommunityIcons name="google" size={22} color="#EA4335" />
+              <Text
+                style={{
+                  color: "white",
+                  marginLeft: 12,
+                  fontSize: 16,
+                  fontWeight: "600",
+                }}
+              >
+                Sign Up with Google
+              </Text>
+            </>
           )}
         </Pressable>
 

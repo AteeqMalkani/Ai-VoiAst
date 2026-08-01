@@ -1,17 +1,19 @@
 import {
   createUserWithEmailAndPassword,
+  GoogleAuthProvider,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   updateProfile,
 } from "firebase/auth";
 
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 
 import { auth, db } from "@/firebase/config";
 
 /**
- * Register a new user
+ * Register a new user with Email and Password
  */
 export async function register(name: string, email: string, password: string) {
   const credential = await createUserWithEmailAndPassword(
@@ -37,7 +39,36 @@ export async function register(name: string, email: string, password: string) {
 }
 
 /**
- * Login
+ * Register / Sign In with Google
+ */
+export async function registerWithGoogle() {
+  const provider = new GoogleAuthProvider();
+  const credential = await signInWithPopup(auth, provider);
+  const user = credential.user;
+
+  // Check if the user document already exists in Firestore
+  const userDocRef = doc(db, "users", user.uid);
+  const userDoc = await getDoc(userDocRef);
+
+  // If new user, create their document in Firestore
+  if (!userDoc.exists()) {
+    await setDoc(userDocRef, {
+      uid: user.uid,
+      name: user.displayName || "",
+      email: user.email || "",
+      photoURL: user.photoURL || "",
+      createdAt: serverTimestamp(),
+    });
+  }
+
+  return user;
+}
+
+// Alias registerWithGoogle as loginWithGoogle for convenience
+export const loginWithGoogle = registerWithGoogle;
+
+/**
+ * Login with Email and Password
  */
 export async function login(email: string, password: string) {
   const credential = await signInWithEmailAndPassword(auth, email, password);

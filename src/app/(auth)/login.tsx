@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 
-import { login } from "@/services/auth";
+import { login, loginWithGoogle } from "@/services/auth";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
@@ -20,6 +20,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [remember, setRemember] = useState(true);
 
@@ -76,6 +77,21 @@ export default function Login() {
       Alert.alert("Login Failed", message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleAuth = async () => {
+    setGoogleLoading(true);
+    try {
+      await loginWithGoogle();
+      router.replace("/(tabs)");
+    } catch (error: any) {
+      Alert.alert(
+        "Google Sign-In Failed",
+        error?.message || "Could not sign in with Google. Please try again.",
+      );
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -157,7 +173,7 @@ export default function Login() {
             textContentType="emailAddress"
             placeholder="Enter your email"
             placeholderTextColor="#64748B"
-            editable={!loading}
+            editable={!loading && !googleLoading}
             style={{
               height: 58,
               borderRadius: 18,
@@ -205,7 +221,7 @@ export default function Login() {
               textContentType="password"
               placeholder="Enter your password"
               placeholderTextColor="#64748B"
-              editable={!loading}
+              editable={!loading && !googleLoading}
               style={{
                 flex: 1,
                 color: "white",
@@ -233,7 +249,7 @@ export default function Login() {
           }}
         >
           <Pressable
-            disabled={loading}
+            disabled={loading || googleLoading}
             onPress={() => setRemember(!remember)}
             style={{
               flexDirection: "row",
@@ -258,7 +274,7 @@ export default function Login() {
 
           <Pressable
             onPress={() => router.push("/(auth)/forgot-password")}
-            disabled={loading}
+            disabled={loading || googleLoading}
           >
             <Text
               style={{
@@ -274,7 +290,7 @@ export default function Login() {
         {/* Sign In Button */}
         <Pressable
           onPress={handleLogin}
-          disabled={loading}
+          disabled={loading || googleLoading}
           style={{
             marginTop: 40,
             height: 58,
@@ -334,8 +350,10 @@ export default function Login() {
           />
         </View>
 
-        {/* Google */}
+        {/* Google Sign-In Button */}
         <Pressable
+          onPress={handleGoogleAuth}
+          disabled={loading || googleLoading}
           style={{
             height: 58,
             borderRadius: 18,
@@ -344,20 +362,27 @@ export default function Login() {
             justifyContent: "center",
             alignItems: "center",
             flexDirection: "row",
+            backgroundColor: "transparent",
+            opacity: googleLoading ? 0.7 : 1,
           }}
         >
-          <MaterialCommunityIcons name="google" size={22} color="#EA4335" />
-
-          <Text
-            style={{
-              color: "white",
-              marginLeft: 12,
-              fontSize: 16,
-              fontWeight: "600",
-            }}
-          >
-            Continue with Google
-          </Text>
+          {googleLoading ? (
+            <ActivityIndicator color="#EA4335" />
+          ) : (
+            <>
+              <MaterialCommunityIcons name="google" size={22} color="#EA4335" />
+              <Text
+                style={{
+                  color: "white",
+                  marginLeft: 12,
+                  fontSize: 16,
+                  fontWeight: "600",
+                }}
+              >
+                Continue with Google
+              </Text>
+            </>
+          )}
         </Pressable>
 
         {/* Footer */}
