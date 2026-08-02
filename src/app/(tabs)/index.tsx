@@ -1,13 +1,10 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Audio } from "expo-av";
 import { router } from "expo-router";
-import * as Speech from "expo-speech";
-import { useEffect, useRef, useState } from "react";
-import { Alert, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/hooks/useAuth";
-import { useVoiceStore } from "@/store/voiceStore";
+import { useVoiceAssistant } from "@/hooks/useVoiceAssistant";
 
 import { HeaderSettings } from "@/components/home/HeaderSettings";
 import Header from "@/components/layout/Header";
@@ -16,200 +13,17 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import VoiceOrb from "@/components/voice/VoiceOrb";
 import Waveform from "@/components/voice/Waveform";
 
-// Configuration for Voice Activity Detection (VAD)
-const SILENCE_THRESHOLD_DB = -35; // Volume threshold below which is considered silence
-const SILENCE_DURATION_MS = 1500; // Duration of silence to trigger auto-stop (1.5s)
-
-function getAssistantReply(userSpeech: string): string {
-  const lower = userSpeech.toLowerCase().trim();
-
-  if (
-    lower.includes("hi") ||
-    lower.includes("hello") ||
-    lower.includes("hey")
-  ) {
-    const greetings = [
-      "Hello! How are you doing today?",
-      "Hi there! How was your day?",
-      "Hey! How can I make your day easier?",
-    ];
-    return greetings[Math.floor(Math.random() * greetings.length)];
-  } else if (lower.includes("how are you")) {
-    return "I'm doing great, thank you for asking! How about you?";
-  } else if (lower.includes("schedule") || lower.includes("meeting")) {
-    return "Sure thing! I can help schedule that meeting for you.";
-  } else if (lower.includes("thank")) {
-    return "You're very welcome! Let me know if you need anything else.";
-  } else {
-    return `Got it! You said: "${userSpeech}". How else can I assist?`;
-  }
-}
-
-/**
- * Speech-to-Text Transcriber
- * Pass audio URI to OpenAI Whisper / Speech API here.
- */
-async function transcribeAudio(audioUri: string): Promise<string> {
-  console.log("Processing audio recording at:", audioUri);
-
-  // TODO: Replace with real Whisper API / STT service call.
-  // Example API call:
-  // const formData = new FormData();
-  // formData.append('file', { uri: audioUri, type: 'audio/m4a', name: 'audio.m4a' });
-  // const res = await fetch('https://api.openai.com/v1/audio/transcriptions', { ... });
-
-  return "Hello how are you"; // Return fallback transcribed string for testing
-}
-
 export default function Home() {
   const { user, signOut } = useAuth();
-  const timerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const lastSpokenTimeRef = useRef<number>(Date.now());
-  const isStoppingRef = useRef<boolean>(false);
 
-  const [assistantReply, setAssistantReply] = useState<string | null>(null);
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [permissionResponse, requestPermission] = Audio.usePermissions();
-
-  const { state, transcript, setState, setTranscript } = useVoiceStore();
-
-  const clearAllTimers = () => {
-    timerRefs.current.forEach(clearTimeout);
-    timerRefs.current = [];
-  };
-
-  useEffect(() => {
-    return () => {
-      clearAllTimers();
-      Speech.stop();
-      if (recording) {
-        recording.stopAndUnloadAsync();
-      }
-    };
-  }, []);
-
-  // Speak text using Option A: expo-speech
-  const speakResponse = (text: string) => {
-    setState("speaking");
-    Speech.speak(text, {
-      language: "en-US",
-      pitch: 1.0,
-      rate: 0.95,
-      onDone: () => setState("idle"),
-      onError: () => setState("idle"),
-    });
-  };
-
-  // Monitor audio levels for Silence Auto-Detection
-  const onRecordingStatusUpdate = (status: Audio.RecordingStatus) => {
-    if (!status.isRecording || isStoppingRef.current) return;
-
-    const metering = status.metering ?? -160;
-
-    // Reset silence timer if voice input is detected above threshold
-    if (metering > SILENCE_THRESHOLD_DB) {
-      lastSpokenTimeRef.current = Date.now();
-    } else {
-      // Check if silence has lasted longer than our threshold (1.5 seconds)
-      const silenceDuration = Date.now() - lastSpokenTimeRef.current;
-      if (silenceDuration > SILENCE_DURATION_MS) {
-        isStoppingRef.current = true;
-        stopRecordingAndProcess();
-      }
-    }
-  };
-
-  // 1. Start Voice Recording with Silence Detection (VAD)
-  async function startRecording() {
-    try {
-      if (permissionResponse?.status !== "granted") {
-        const permission = await requestPermission();
-        if (!permission.granted) {
-          Alert.alert("Permission required", "Microphone access is required.");
-          return;
-        }
-      }
-
-      // Stop any active speech before starting a new recording
-      Speech.stop();
-
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      isStoppingRef.current = false;
-      lastSpokenTimeRef.current = Date.now();
-
-      // Start Recording with High Quality preset and metering enabled
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        {
-          ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
-          isMeteringEnabled: true,
-        },
-        onRecordingStatusUpdate,
-        100, // Status update interval in ms
-      );
-
-      setRecording(newRecording);
-      setTranscript("");
-      setAssistantReply(null);
-      setState("listening");
-    } catch (err) {
-      console.error("Failed to start recording:", err);
-    }
-  }
-
-  // 2. Stop Voice Recording & Generate Voice Reply
-  async function stopRecordingAndProcess() {
-    if (!recording) return;
-
-    setState("thinking");
-    const currentRecording = recording;
-    setRecording(null);
-
-    try {
-      await currentRecording.stopAndUnloadAsync();
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-
-      const uri = currentRecording.getURI();
-
-      // Convert recorded audio file to text
-      const recognizedText = uri ? await transcribeAudio(uri) : "Hello";
-
-      processSpeechInteraction(recognizedText);
-    } catch (error) {
-      console.error("Failed to stop recording:", error);
-      setState("idle");
-    }
-  }
-
-  // 3. Conversational Pipeline with Voice Output
-  const processSpeechInteraction = (userSpeech: string) => {
-    clearAllTimers();
-    setTranscript(userSpeech);
-
-    const t1 = setTimeout(() => {
-      const reply = getAssistantReply(userSpeech);
-      setAssistantReply(reply);
-      speakResponse(reply); // Triggers Voice Output
-    }, 800);
-
-    timerRefs.current.push(t1);
-  };
-
-  const handleVoicePress = () => {
-    if (state === "idle") {
-      startRecording();
-    } else if (state === "listening") {
-      // Allow manual override stop if user taps early
-      stopRecordingAndProcess();
-    } else if (state === "speaking") {
-      // Tap while speaking stops the voice reply immediately
-      Speech.stop();
-      setState("idle");
-    }
-  };
+  const {
+    state,
+    transcript,
+    assistantReply,
+    recording,
+    handleVoicePress,
+    processSpeechInteraction,
+  } = useVoiceAssistant();
 
   const handleOptionSelect = async (option: string) => {
     if (option === "logout") {

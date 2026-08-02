@@ -1,4 +1,4 @@
 export * from "./ai";
-export * from "./automation";
+export * from "./commands";
 export * from "./speech";
 export * from "./storage";
