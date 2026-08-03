@@ -1,19 +1,18 @@
 import { Text, View } from "react-native";
+import { VoiceState } from "@/types/voice";
 
-type Status =
-  | "ready"
-  | "listening"
-  | "thinking"
-  | "executing"
-  | "speaking"
-  | "success";
+export type Status = VoiceState | "ready" | "error";
 
 type StatusBadgeProps = {
   status: Status;
 };
 
-const config = {
+const config: Record<Status, { color: string; text: string }> = {
   ready: {
+    color: "#22C55E",
+    text: "Ready",
+  },
+  idle: {
     color: "#22C55E",
     text: "Ready",
   },
@@ -30,10 +29,10 @@ const config = {
     text: "Speaking...",
   },
   executing: {
-    color: "#22C55E",
+    color: "#F59E0B",
     text: "Executing...",
   },
-  success: {
+  done: {
     color: "#16A34A",
     text: "Completed",
   },
@@ -44,7 +43,7 @@ const config = {
 };
 
 export default function StatusBadge({ status }: StatusBadgeProps) {
-  const current = config[status];
+  const current = config[status] ?? config.ready;
 
   return (
     <View

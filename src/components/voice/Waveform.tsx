@@ -11,8 +11,7 @@ import Animated, {
 
 import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
 
-import { VoiceState } from "@/types/voice";
-import { VoiceColors } from "@/types/voice";
+import { VoiceColors, VoiceState } from "@/types/voice";
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
@@ -63,7 +62,11 @@ export default function Waveform({ state, volume = 0.5 }: WaveformProps) {
         amplitude = 14;
         break;
 
-      case "success":
+      case "speaking":
+        amplitude = 18;
+        break;
+
+      case "done":
         amplitude = 8;
         break;
     }
@@ -72,15 +75,11 @@ export default function Waveform({ state, volume = 0.5 }: WaveformProps) {
       const t = time.value;
 
       const wave1 = Math.sin(t * 0.02 + x * 0.03) * amplitude;
-
       const wave2 = Math.sin(t * 0.013 + x * 0.065) * (amplitude * 0.5);
-
       const wave3 = Math.sin(t * 0.008 + x * 0.014) * (amplitude * 0.7);
 
       const y = centerY + wave1 + wave2 + wave3;
-
       const distance = Math.abs(x - WIDTH / 2) / (WIDTH / 2);
-
       const strength = 1 - distance * 0.45;
 
       const finalY = centerY + (y - centerY) * strength;
@@ -93,7 +92,7 @@ export default function Waveform({ state, volume = 0.5 }: WaveformProps) {
     };
   });
 
-  const current = VoiceColors[state];
+  const current = VoiceColors[state] ?? VoiceColors.idle;
 
   return (
     <View
@@ -108,19 +107,14 @@ export default function Waveform({ state, volume = 0.5 }: WaveformProps) {
         <Defs>
           <LinearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
             <Stop offset="0%" stopColor={current.primary} stopOpacity="0" />
-
             <Stop offset="18%" stopColor={current.primary} stopOpacity="1" />
-
             <Stop offset="50%" stopColor={current.secondary} stopOpacity="1" />
-
             <Stop offset="82%" stopColor={current.primary} stopOpacity="1" />
-
             <Stop offset="100%" stopColor={current.primary} stopOpacity="0" />
           </LinearGradient>
         </Defs>
 
         {/* Glow */}
-
         <AnimatedPath
           animatedProps={animatedProps}
           stroke="url(#gradient)"
@@ -131,7 +125,6 @@ export default function Waveform({ state, volume = 0.5 }: WaveformProps) {
         />
 
         {/* Soft Wave */}
-
         <AnimatedPath
           animatedProps={animatedProps}
           stroke="url(#gradient)"
@@ -142,7 +135,6 @@ export default function Waveform({ state, volume = 0.5 }: WaveformProps) {
         />
 
         {/* Main Wave */}
-
         <AnimatedPath
           animatedProps={animatedProps}
           stroke="url(#gradient)"

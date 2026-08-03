@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/hooks/useAuth";
 import { useVoiceAssistant } from "@/hooks/useVoiceAssistant";
+import { useVoiceStore } from "@/store/voiceStore";
 
 import { HeaderSettings } from "@/components/home/HeaderSettings";
 import Header from "@/components/layout/Header";
@@ -25,6 +26,9 @@ export default function Home() {
     processSpeechInteraction,
   } = useVoiceAssistant();
 
+  // Grab active execution steps from Zustand store for task state UI
+  const executionSteps = useVoiceStore((s) => s.executionSteps);
+
   const handleOptionSelect = async (option: string) => {
     if (option === "logout") {
       try {
@@ -40,6 +44,44 @@ export default function Home() {
   };
 
   const username = user?.displayName || user?.email?.split("@")[0] || "User";
+
+  // Dynamic titles for each state phase
+  const getHeroTitle = () => {
+    switch (state) {
+      case "listening":
+        return "Listening...";
+      case "thinking":
+        return "Thinking...";
+      case "executing":
+        return "Executing Task...";
+      case "done":
+        return "Task Completed!";
+      case "speaking":
+        return "VoiAst Speaking";
+      case "idle":
+      default:
+        return "How can I help today?";
+    }
+  };
+
+  // Dynamic subtitles for each state phase
+  const getHeroSubtitle = () => {
+    switch (state) {
+      case "listening":
+        return "Speak now... Auto-detecting when you finish.";
+      case "thinking":
+        return "Analyzing your voice request...";
+      case "executing":
+        return "Running automation steps in background...";
+      case "done":
+        return "All execution steps finished successfully.";
+      case "speaking":
+        return "Tap the orb to interrupt speech.";
+      case "idle":
+      default:
+        return "Tap the orb and speak naturally.";
+    }
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#070B14" }}>
@@ -81,11 +123,7 @@ export default function Home() {
               marginTop: 22,
             }}
           >
-            {state === "listening"
-              ? "Listening..."
-              : state === "speaking"
-                ? "VoiAst Speaking"
-                : "How can I help today?"}
+            {getHeroTitle()}
           </Text>
 
           <Text
@@ -98,11 +136,7 @@ export default function Home() {
               paddingHorizontal: 20,
             }}
           >
-            {state === "listening"
-              ? "Speak now... Auto-detecting when you finish."
-              : state === "speaking"
-                ? "Tap the orb to interrupt speech."
-                : "Tap the orb and speak naturally."}
+            {getHeroSubtitle()}
           </Text>
 
           {/* Quick Actions */}
@@ -129,16 +163,78 @@ export default function Home() {
             />
             <QuickAction
               title="🤖 Automate"
-              onPress={() => processSpeechInteraction("Run my evening routine")}
+              onPress={() => processSpeechInteraction("Tell me a joke")}
             />
           </View>
         </View>
 
-        {/* Minimalist Reply Pill */}
-        {(transcript !== "" || assistantReply !== null) && (
+        {/* Task Execution Steps Progress Display */}
+        {executionSteps.length > 0 && (
           <View
             style={{
-              marginTop: 28,
+              marginTop: 24,
+              backgroundColor: "#0B132B",
+              borderRadius: 16,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: "#1C2D5A",
+            }}
+          >
+            <Text
+              style={{
+                color: "#3B82F6",
+                fontSize: 14,
+                fontWeight: "700",
+                marginBottom: 10,
+                textTransform: "uppercase",
+                letterSpacing: 0.8,
+              }}
+            >
+              Execution Progress
+            </Text>
+
+            {executionSteps.map((step, idx) => (
+              <View
+                key={idx}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginTop: idx === 0 ? 0 : 8,
+                }}
+              >
+                <MaterialCommunityIcons
+                  name={
+                    state === "executing" && idx === executionSteps.length - 1
+                      ? "progress-clock"
+                      : "check-circle-outline"
+                  }
+                  size={18}
+                  color={
+                    state === "executing" && idx === executionSteps.length - 1
+                      ? "#3B82F6"
+                      : "#10B981"
+                  }
+                />
+                <Text
+                  style={{
+                    color: "#CBD5E1",
+                    fontSize: 14,
+                    marginLeft: 8,
+                    flex: 1,
+                  }}
+                >
+                  {step}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Minimalist Reply Pill */}
+        {(Boolean(transcript) || Boolean(assistantReply)) && (
+          <View
+            style={{
+              marginTop: 24,
               backgroundColor: "#0F172A",
               borderRadius: 18,
               padding: 18,
@@ -146,7 +242,7 @@ export default function Home() {
               borderColor: "#1E293B",
             }}
           >
-            {transcript !== "" && (
+            {Boolean(transcript) && (
               <View
                 style={{
                   flexDirection: "row",
@@ -165,6 +261,7 @@ export default function Home() {
                     fontSize: 15,
                     marginLeft: 10,
                     fontWeight: "500",
+                    flex: 1,
                   }}
                 >
                   "{transcript}"
@@ -172,7 +269,7 @@ export default function Home() {
               </View>
             )}
 
-            {assistantReply && (
+            {Boolean(assistantReply) && (
               <View
                 style={{
                   flexDirection: "row",

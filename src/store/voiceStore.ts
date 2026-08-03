@@ -39,5 +39,6 @@ export const useVoiceStore = create<VoiceStoreState>((set) => ({
       state: "idle",
       transcript: "",
       executionSteps: [],
+      lastTask: null,
     }),
 }));

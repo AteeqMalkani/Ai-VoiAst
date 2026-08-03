@@ -1,44 +1,47 @@
+import * as FileSystem from "expo-file-system/legacy";
+import { askGemini } from "./gemini";
+
+/**
+ * Reads local audio file and transcribes it using Gemini Audio API
+ */
 export async function transcribeAudio(audioUri: string): Promise<string> {
-  console.log("Processing:", audioUri);
+  try {
+    console.log("Processing audio file at:", audioUri);
 
-  // TODO:
-  // Replace this with Whisper,
-  // Gemini Speech,
-  // OpenAI Speech,
-  // Deepgram,
-  // AssemblyAI...
+    // 1. Convert local audio file into Base64 format using the legacy FileSystem API
+    const base64Audio = await FileSystem.readAsStringAsync(audioUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
 
-  return "Hello how are you";
+    if (!base64Audio) {
+      throw new Error("Failed to convert audio file to base64");
+    }
+
+    // 2. Prepare inline audio payload & text prompt parts for Gemini
+    const audioPart = {
+      inlineData: {
+        mimeType: "audio/m4a", // Expo AV default recording format
+        data: base64Audio,
+      },
+    };
+
+    const textPart = {
+      text: "Transcribe the user's spoken audio accurately. Output ONLY the exact transcribed text without any quotes, extra punctuation, or comments.",
+    };
+
+    // 3. Request transcription from Gemini by passing array of parts
+    const transcribedText = await askGemini([audioPart, textPart]);
+    const cleanedText =
+      typeof transcribedText === "string" ? transcribedText.trim() : "";
+
+    console.log("Recognized Speech:", cleanedText);
+    return cleanedText;
+  } catch (error) {
+    console.error("Error in transcribeAudio:", error);
+    return "";
+  }
 }
 
 export async function generateReply(message: string): Promise<string> {
-  const lower = message.toLowerCase().trim();
-
-  if (
-    lower.includes("hello") ||
-    lower.includes("hi") ||
-    lower.includes("hey")
-  ) {
-    const greetings = [
-      "Hello! How are you doing today?",
-      "Hi there! How was your day?",
-      "Hey! How can I help you today?",
-    ];
-
-    return greetings[Math.floor(Math.random() * greetings.length)];
-  }
-
-  if (lower.includes("how are you")) {
-    return "I'm doing great. Thanks for asking!";
-  }
-
-  if (lower.includes("meeting") || lower.includes("schedule")) {
-    return "Sure! I can help schedule that meeting.";
-  }
-
-  if (lower.includes("thank")) {
-    return "You're welcome!";
-  }
-
-  return `Got it. You said "${message}".`;
+  return await askGemini(message);
 }

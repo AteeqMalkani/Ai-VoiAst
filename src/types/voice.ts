@@ -4,7 +4,7 @@ export type VoiceState =
   | "thinking"
   | "executing"
   | "speaking"
-  | "success";
+  | "done";
 
 export const VoiceColors: Record<
   VoiceState,
@@ -38,7 +38,7 @@ export const VoiceColors: Record<
     secondary: "#67E8F9",
   },
 
-  success: {
+  done: {
     primary: "#10B981",
     secondary: "#6EE7B7",
   },
