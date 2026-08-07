@@ -26,6 +26,13 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Focus state tracking for active border highlighting on Web & Mobile
+  const [isNameFocused, setIsNameFocused] = useState(false);
+  const [isEmailFocused, setIsEmailFocused] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+  const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] =
+    useState(false);
+
   const handleRegister = async () => {
     const trimmedName = name.trim();
     const trimmedEmail = email.trim().toLowerCase();
@@ -61,10 +68,8 @@ export default function Register() {
     setLoading(true);
 
     try {
-      // 1. Create user in Firebase
       await register(trimmedName, trimmedEmail, password);
 
-      // 2. Notify the user and navigate upon dismissal
       Alert.alert(
         "User Created Successfully",
         "Your account has been created. Please sign in to continue.",
@@ -189,27 +194,38 @@ export default function Register() {
             Full Name
           </Text>
 
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            autoCapitalize="words"
-            autoCorrect={false}
-            textContentType="name"
-            autoComplete="name"
-            placeholder="Enter your full name"
-            placeholderTextColor="#64748B"
-            editable={!loading && !googleLoading}
+          <View
             style={{
               height: 58,
               borderRadius: 18,
               backgroundColor: "#111827",
               borderWidth: 1,
-              borderColor: "#1E293B",
-              color: "white",
+              borderColor: isNameFocused ? "#5B8CFF" : "#1E293B",
               paddingHorizontal: 18,
-              fontSize: 16,
+              justifyContent: "center",
             }}
-          />
+          >
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+              autoCorrect={false}
+              textContentType="name"
+              autoComplete="name"
+              placeholder="Enter your full name"
+              placeholderTextColor="#64748B"
+              editable={!loading && !googleLoading}
+              onFocus={() => setIsNameFocused(true)}
+              onBlur={() => setIsNameFocused(false)}
+              style={{
+                color: "white",
+                fontSize: 16,
+                ...Platform.select({
+                  web: { outlineStyle: "none" } as any,
+                }),
+              }}
+            />
+          </View>
         </View>
 
         {/* Email */}
@@ -223,28 +239,39 @@ export default function Register() {
             Email
           </Text>
 
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            textContentType="emailAddress"
-            autoComplete="email"
-            placeholder="Enter your email"
-            placeholderTextColor="#64748B"
-            editable={!loading && !googleLoading}
+          <View
             style={{
               height: 58,
               borderRadius: 18,
               backgroundColor: "#111827",
               borderWidth: 1,
-              borderColor: "#1E293B",
-              color: "white",
+              borderColor: isEmailFocused ? "#5B8CFF" : "#1E293B",
               paddingHorizontal: 18,
-              fontSize: 16,
+              justifyContent: "center",
             }}
-          />
+          >
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="emailAddress"
+              autoComplete="email"
+              placeholder="Enter your email"
+              placeholderTextColor="#64748B"
+              editable={!loading && !googleLoading}
+              onFocus={() => setIsEmailFocused(true)}
+              onBlur={() => setIsEmailFocused(false)}
+              style={{
+                color: "white",
+                fontSize: 16,
+                ...Platform.select({
+                  web: { outlineStyle: "none" } as any,
+                }),
+              }}
+            />
+          </View>
         </View>
 
         {/* Password */}
@@ -264,7 +291,7 @@ export default function Register() {
               borderRadius: 18,
               backgroundColor: "#111827",
               borderWidth: 1,
-              borderColor: "#1E293B",
+              borderColor: isPasswordFocused ? "#5B8CFF" : "#1E293B",
               flexDirection: "row",
               alignItems: "center",
               paddingHorizontal: 18,
@@ -281,10 +308,15 @@ export default function Register() {
               placeholder="Create a password"
               placeholderTextColor="#64748B"
               editable={!loading && !googleLoading}
+              onFocus={() => setIsPasswordFocused(true)}
+              onBlur={() => setIsPasswordFocused(false)}
               style={{
                 flex: 1,
                 color: "white",
                 fontSize: 16,
+                ...Platform.select({
+                  web: { outlineStyle: "none" } as any,
+                }),
               }}
             />
 
@@ -315,7 +347,7 @@ export default function Register() {
               borderRadius: 18,
               backgroundColor: "#111827",
               borderWidth: 1,
-              borderColor: "#1E293B",
+              borderColor: isConfirmPasswordFocused ? "#5B8CFF" : "#1E293B",
               flexDirection: "row",
               alignItems: "center",
               paddingHorizontal: 18,
@@ -332,10 +364,15 @@ export default function Register() {
               placeholder="Confirm your password"
               placeholderTextColor="#64748B"
               editable={!loading && !googleLoading}
+              onFocus={() => setIsConfirmPasswordFocused(true)}
+              onBlur={() => setIsConfirmPasswordFocused(false)}
               style={{
                 flex: 1,
                 color: "white",
                 fontSize: 16,
+                ...Platform.select({
+                  web: { outlineStyle: "none" } as any,
+                }),
               }}
             />
 

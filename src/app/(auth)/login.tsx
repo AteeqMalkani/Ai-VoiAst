@@ -24,6 +24,10 @@ export default function Login() {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [remember, setRemember] = useState(true);
 
+  // Track focused state for clean custom outline styling on Web & Mobile
+  const [isEmailFocused, setIsEmailFocused] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+
   const handleLogin = async () => {
     const trimmedEmail = email.trim().toLowerCase();
 
@@ -39,9 +43,7 @@ export default function Login() {
 
     try {
       await login(trimmedEmail, password);
-
       setPassword("");
-
       router.replace("/(tabs)");
     } catch (error: any) {
       setPassword("");
@@ -52,23 +54,18 @@ export default function Login() {
         case "auth/invalid-credential":
           message = "Invalid email or password.";
           break;
-
         case "auth/user-not-found":
           message = "No account exists with this email.";
           break;
-
         case "auth/wrong-password":
           message = "Incorrect password.";
           break;
-
         case "auth/invalid-email":
           message = "Please enter a valid email address.";
           break;
-
         case "auth/network-request-failed":
           message = "Please check your internet connection.";
           break;
-
         case "auth/too-many-requests":
           message = "Too many failed attempts. Please try again later.";
           break;
@@ -151,7 +148,7 @@ export default function Login() {
           </Text>
         </View>
 
-        {/* Email */}
+        {/* Email Field Container */}
         <View style={{ marginTop: 50 }}>
           <Text
             style={{
@@ -163,31 +160,42 @@ export default function Login() {
             Email
           </Text>
 
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="email"
-            textContentType="emailAddress"
-            placeholder="Enter your email"
-            placeholderTextColor="#64748B"
-            editable={!loading && !googleLoading}
+          <View
             style={{
               height: 58,
               borderRadius: 18,
               backgroundColor: "#111827",
               borderWidth: 1,
-              borderColor: "#1E293B",
+              borderColor: isEmailFocused ? "#5B8CFF" : "#1E293B",
               paddingHorizontal: 18,
-              color: "white",
-              fontSize: 16,
+              justifyContent: "center",
             }}
-          />
+          >
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
+              placeholder="Enter your email"
+              placeholderTextColor="#64748B"
+              editable={!loading && !googleLoading}
+              onFocus={() => setIsEmailFocused(true)}
+              onBlur={() => setIsEmailFocused(false)}
+              style={{
+                color: "white",
+                fontSize: 16,
+                ...Platform.select({
+                  web: { outlineStyle: "none" } as any,
+                }),
+              }}
+            />
+          </View>
         </View>
 
-        {/* Password */}
+        {/* Password Field Container */}
         <View style={{ marginTop: 24 }}>
           <Text
             style={{
@@ -205,7 +213,7 @@ export default function Login() {
               borderRadius: 18,
               backgroundColor: "#111827",
               borderWidth: 1,
-              borderColor: "#1E293B",
+              borderColor: isPasswordFocused ? "#5B8CFF" : "#1E293B",
               flexDirection: "row",
               alignItems: "center",
               paddingHorizontal: 18,
@@ -222,10 +230,15 @@ export default function Login() {
               placeholder="Enter your password"
               placeholderTextColor="#64748B"
               editable={!loading && !googleLoading}
+              onFocus={() => setIsPasswordFocused(true)}
+              onBlur={() => setIsPasswordFocused(false)}
               style={{
                 flex: 1,
                 color: "white",
                 fontSize: 16,
+                ...Platform.select({
+                  web: { outlineStyle: "none" } as any,
+                }),
               }}
             />
 

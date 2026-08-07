@@ -1,56 +1,125 @@
-import * as Speech from "expo-speech";
+import { Audio } from "expo-av";
+import * as FileSystem from "expo-file-system";
+import { Paths, File } from "expo-file-system";
 
-interface SpeakOptions {
+export interface SpeakOptions {
   onStart?: () => void;
   onDone?: () => void;
   onError?: (error: unknown) => void;
 }
 
-/**
- * Synthesizes text to speech with status callbacks.
- */
-export function speak(text?: string | null, options?: SpeakOptions): boolean {
-  if (!text || text.trim().length === 0) {
-    console.log("[Speaker] No text provided to speak.");
-    options?.onDone?.();
-    return false;
-  }
+let currentSound: Audio.Sound | null = null;
 
+export async function stopSpeaking(): Promise<void> {
   try {
-    // Interrupt any active speech before playing new audio
-    Speech.stop();
+    if (currentSound) {
+      await currentSound.stopAsync();
+      await currentSound.unloadAsync();
+      currentSound = null;
+    }
+  } catch (error) {
+    console.error("[Speaker] Error stopping audio:", error);
+  }
+}
 
-    Speech.speak(text.trim(), {
-      language: "en-US",
-      pitch: 1.0,
-      rate: 0.95,
-      onStart: () => {
-        options?.onStart?.();
-      },
-      onDone: () => {
+export async function playAudioBuffer(
+  audioBuffer: ArrayBuffer,
+  options?: SpeakOptions,
+): Promise<boolean> {
+  try {
+    await stopSpeaking();
+
+    // Use modern Expo FileSystem Paths & File API
+    const outputFile = new File(Paths.cache, "elevenlabs_output.mp3");
+
+    // Ensure directory exists and write Uint8Array directly
+    const uint8Array = new Uint8Array(audioBuffer);
+    outputFile.write(uint8Array);
+
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+    });
+
+    const { sound } = await Audio.Sound.createAsync(
+      { uri: outputFile.uri },
+      { shouldPlay: true },
+    );
+
+    currentSound = sound;
+    options?.onStart?.();
+
+    sound.setOnPlaybackStatusUpdate((status) => {
+      if (!status.isLoaded) return;
+
+      if (status.didJustFinish) {
+        sound.unloadAsync();
+        currentSound = null;
         options?.onDone?.();
-      },
-      onError: (err) => {
-        console.error("[Speaker] Playback Error:", err);
-        options?.onError?.(err);
-      },
+      }
     });
 
     return true;
   } catch (error) {
-    console.error("[Speaker] Failed to initialize speech:", error);
-    options?.onError?.(error);
+    // Fallback implementation if new API is disabled/unlinked in runtime
+    return await playAudioBufferLegacy(audioBuffer, options);
+  }
+}
+
+async function playAudioBufferLegacy(
+  audioBuffer: ArrayBuffer,
+  options?: SpeakOptions,
+): Promise<boolean> {
+  try {
+    const legacyCacheDir = (FileSystem as Record<string, any>).cacheDirectory;
+    if (!legacyCacheDir) {
+      throw new Error("Unable to resolve local cache directory.");
+    }
+
+    const fileUri = `${legacyCacheDir}elevenlabs_output.mp3`;
+    const base64Audio = arrayBufferToBase64(audioBuffer);
+
+    await FileSystem.writeAsStringAsync(fileUri, base64Audio, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+    });
+
+    const { sound } = await Audio.Sound.createAsync(
+      { uri: fileUri },
+      { shouldPlay: true },
+    );
+
+    currentSound = sound;
+    options?.onStart?.();
+
+    sound.setOnPlaybackStatusUpdate((status) => {
+      if (!status.isLoaded) return;
+
+      if (status.didJustFinish) {
+        sound.unloadAsync();
+        currentSound = null;
+        options?.onDone?.();
+      }
+    });
+
+    return true;
+  } catch (err) {
+    console.error("[Speaker] Legacy Playback Error:", err);
+    options?.onError?.(err);
     return false;
   }
 }
 
-/**
- * Immediately stops any ongoing speech output.
- */
-export function stopSpeaking(): void {
-  try {
-    Speech.stop();
-  } catch (error) {
-    console.error("[Speaker] Error stopping speech:", error);
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
   }
+  return btoa(binary);
 }

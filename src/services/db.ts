@@ -30,6 +30,7 @@ export const syncUserProfileOnLogin = async (user: {
   email: string | null;
   displayName?: string | null;
   photoURL?: string | null;
+  googleAccessToken?: string | null;
 }) => {
   const userRef = doc(db, "users", user.uid);
   const userSnap = await getDoc(userRef);
@@ -50,6 +51,9 @@ export const syncUserProfileOnLogin = async (user: {
       timezone:
         Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Karachi",
       premium: false,
+      ...(user.googleAccessToken
+        ? { googleAccessToken: user.googleAccessToken }
+        : {}),
     };
 
     await setDoc(userRef, newUser);
@@ -65,9 +69,12 @@ export const syncUserProfileOnLogin = async (user: {
     };
     await setDoc(doc(db, "settings", user.uid), defaultSettings);
   } else {
-    // Just update lastLogin on subsequent logins
+    // Update lastLogin and refresh Google Access Token on subsequent logins
     await updateDoc(userRef, {
       lastLogin: serverTimestamp(),
+      ...(user.googleAccessToken
+        ? { googleAccessToken: user.googleAccessToken }
+        : {}),
     });
   }
 };

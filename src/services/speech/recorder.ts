@@ -59,11 +59,14 @@ export async function startRecorder(
   return recording;
 }
 
-export async function stopRecorder(recording: Audio.Recording) {
+export async function stopRecorder(
+  recording: Audio.Recording,
+): Promise<string | null> {
   await recording.stopAndUnloadAsync();
 
   await Audio.setAudioModeAsync({
     allowsRecordingIOS: false,
+    playsInSilentModeIOS: true,
   });
 
   return recording.getURI();

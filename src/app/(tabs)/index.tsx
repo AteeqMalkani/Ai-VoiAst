@@ -21,12 +21,10 @@ export default function Home() {
     state,
     transcript,
     assistantReply,
-    recording,
     handleVoicePress,
     processSpeechInteraction,
   } = useVoiceAssistant();
 
-  // Grab active execution steps from Zustand store for task state UI
   const executionSteps = useVoiceStore((s) => s.executionSteps);
 
   const handleOptionSelect = async (option: string) => {
@@ -44,8 +42,8 @@ export default function Home() {
   };
 
   const username = user?.displayName || user?.email?.split("@")[0] || "User";
+  const isBusy = state !== "idle" && state !== "done";
 
-  // Dynamic titles for each state phase
   const getHeroTitle = () => {
     switch (state) {
       case "listening":
@@ -64,7 +62,6 @@ export default function Home() {
     }
   };
 
-  // Dynamic subtitles for each state phase
   const getHeroSubtitle = () => {
     switch (state) {
       case "listening":
@@ -95,7 +92,7 @@ export default function Home() {
           paddingBottom: 40,
         }}
       >
-        <Header greeting="Good Evening" name={username} />
+        <Header greeting="Welcome" name={username} />
 
         <StatusBadge status={state === "idle" ? "ready" : state} />
 
@@ -110,7 +107,12 @@ export default function Home() {
           <View style={{ alignItems: "center" }}>
             <VoiceOrb state={state} onPress={handleVoicePress} size={220} />
             <View style={{ marginTop: -22 }}>
-              <Waveform state={state} volume={recording ? 0.9 : 0.2} />
+              <Waveform
+                state={state}
+                volume={
+                  state === "listening" || state === "speaking" ? 0.95 : 0.15
+                }
+              />
             </View>
           </View>
 
@@ -147,7 +149,9 @@ export default function Home() {
               justifyContent: "center",
               gap: 12,
               marginTop: 32,
+              opacity: isBusy ? 0.6 : 1.0,
             }}
+            pointerEvents={isBusy ? "none" : "auto"}
           >
             <QuickAction
               title="📅 Calendar"
@@ -195,7 +199,7 @@ export default function Home() {
 
             {executionSteps.map((step, idx) => (
               <View
-                key={idx}
+                key={`${step}-${idx}`}
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
@@ -230,7 +234,7 @@ export default function Home() {
           </View>
         )}
 
-        {/* Minimalist Reply Pill */}
+        {/* Reply & Transcript Card */}
         {(Boolean(transcript) || Boolean(assistantReply)) && (
           <View
             style={{

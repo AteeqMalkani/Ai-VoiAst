@@ -1,14 +1,21 @@
-import { generateReply, transcribeAudio } from "@/services/ai/assistant";
+import { Audio } from "expo-av";
+import * as Speech from "expo-speech";
+import { useEffect, useRef, useState } from "react";
+import { Alert } from "react-native";
+
+import {
+  createGoogleCalendarEvent,
+  sendGmail,
+} from "@/services/apps/googleServices";
+import { saveNote } from "@/services/apps/notes";
+import { transcribeAudio } from "@/services/speech/elevenSTT";
 import {
   shouldStopRecording,
   startRecorder,
   stopRecorder,
 } from "@/services/speech/recorder";
-import { speak, stopSpeaking } from "@/services/speech/speaker";
 import { useVoiceStore } from "@/store/voiceStore";
-import { Audio } from "expo-av";
-import { useEffect, useRef, useState } from "react";
-import { Alert } from "react-native";
+import { askAI } from "../services/ai/openrouter";
 
 const TASK_KEYWORDS = [
   "email",
@@ -21,7 +28,7 @@ const TASK_KEYWORDS = [
   "remind",
 ];
 
-export function useVoiceAssistant() {
+export function useVoiceAssistant(googleToken?: string) {
   const timerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [assistantReply, setAssistantReply] = useState<string | null>(null);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
@@ -46,12 +53,42 @@ export function useVoiceAssistant() {
   useEffect(() => {
     return () => {
       clearAllTimers();
-      stopSpeaking();
+      Speech.stop();
       if (recording) {
         recording.stopAndUnloadAsync();
       }
     };
   }, []);
+
+  /**
+   * Speaks text using native Expo Speech (Device-level TTS)
+   */
+  const speakWithExpoSpeech = (text: string, onDoneCallback?: () => void) => {
+    try {
+      Speech.stop();
+      setState("speaking");
+
+      Speech.speak(text, {
+        language: "en-US",
+        pitch: 1.0,
+        rate: 1.0,
+        onDone: () => {
+          if (onDoneCallback) {
+            onDoneCallback();
+          } else {
+            setState("idle");
+          }
+        },
+        onError: (error) => {
+          console.error("[useVoiceAssistant] expo-speech Error:", error);
+          setState("idle");
+        },
+      });
+    } catch (error) {
+      console.error("[useVoiceAssistant] Speech Invocation Error:", error);
+      setState("idle");
+    }
+  };
 
   // Monitor audio levels for Silence Auto-Detection
   const onRecordingStatusUpdate = (status: Audio.RecordingStatus) => {
@@ -63,7 +100,7 @@ export function useVoiceAssistant() {
   // 1. Start Voice Recording
   async function startRecording() {
     try {
-      stopSpeaking();
+      Speech.stop();
       clearAllTimers();
 
       const newRecording = await startRecorder(
@@ -84,7 +121,6 @@ export function useVoiceAssistant() {
   }
 
   // 2. Stop Voice Recording & Process Pipeline
-  // Stop Voice Recording & Process Pipeline
   async function stopRecordingAndProcess() {
     if (!recording) return;
 
@@ -101,25 +137,18 @@ export function useVoiceAssistant() {
         return;
       }
 
-      // 1. Get real transcript from audio file
+      // Transcribe audio via ElevenLabs STT
       const recognizedText = await transcribeAudio(uri);
 
-      // 2. Fallback check if user said nothing or VAD triggered on ambient noise
       if (!recognizedText || recognizedText.trim().length === 0) {
         console.warn("Transcription returned empty string.");
-        setAssistantReply(
-          "I couldn't hear you clearly. Could you say that again?",
-        );
-
-        speak("I couldn't hear you clearly. Could you say that again?", {
-          onStart: () => setState("speaking"),
-          onDone: () => setState("idle"),
-          onError: () => setState("idle"),
-        });
+        const fallbackMsg =
+          "I couldn't hear you clearly. Could you say that again?";
+        setAssistantReply(fallbackMsg);
+        speakWithExpoSpeech(fallbackMsg);
         return;
       }
 
-      // 3. Process valid user transcript
       processSpeechInteraction(recognizedText);
     } catch (error) {
       console.error("Failed to process recording:", error);
@@ -147,79 +176,114 @@ export function useVoiceAssistant() {
   };
 
   // ─── FLOW A: Conversational (Chat / Q&A) ───────────────────────────────────
-  // Listening -> Thinking -> Speaking -> Idle
   const handleConversationalFlow = async (userSpeech: string) => {
-    const t1 = setTimeout(async () => {
-      const reply = await generateReply(userSpeech);
+    try {
+      const reply = await askAI(userSpeech);
       setAssistantReply(reply);
-
-      speak(reply, {
-        onStart: () => setState("speaking"),
-        onDone: () => setState("idle"),
-        onError: () => setState("idle"),
-      });
-    }, 500);
-
-    timerRefs.current.push(t1);
+      speakWithExpoSpeech(reply);
+    } catch (error) {
+      console.error("Error in conversational flow:", error);
+      setState("idle");
+    }
   };
 
   // ─── FLOW B: Task Execution ────────────────────────────────────────────────
-  // Listening -> Thinking -> Speaking ("On it") -> Executing -> Done -> Speaking -> Idle
   const handleTaskExecutionFlow = async (userSpeech: string) => {
     const initialAck = "On it. Processing your request now.";
     setAssistantReply(initialAck);
 
-    // Step 1: Speak initial acknowledgment
-    speak(initialAck, {
-      onStart: () => setState("speaking"),
-      onDone: async () => {
-        // Step 2: Transition to Executing state
-        setState("executing");
-        addExecutionStep("Initializing task runner...");
+    speakWithExpoSpeech(initialAck, async () => {
+      setState("executing");
+      addExecutionStep("Initializing task runner...");
 
-        // Simulate step progress
-        const tStep1 = setTimeout(() => {
-          addExecutionStep(`Parsing action parameters for: "${userSpeech}"`);
-        }, 800);
+      const lowerInput = userSpeech.toLowerCase();
 
-        const tStep2 = setTimeout(async () => {
-          addExecutionStep("Executing service payload...");
+      try {
+        // Route 1: Calendar Integration
+        if (
+          lowerInput.includes("meeting") ||
+          lowerInput.includes("schedule") ||
+          lowerInput.includes("calendar")
+        ) {
+          if (!googleToken) {
+            const authErr =
+              "Please connect your Google Account in Settings to manage Calendar events.";
+            setAssistantReply(authErr);
+            speakWithExpoSpeech(authErr);
+            return;
+          }
 
-          // Record task result in store
-          setLastTask({
-            id: Date.now().toString(),
-            title: userSpeech,
-            status: "completed",
-            completedAt: new Date().toLocaleTimeString(),
+          addExecutionStep("Parsing calendar request...");
+          addExecutionStep("Calling Google Calendar API...");
+
+          await createGoogleCalendarEvent({
+            accessToken: googleToken,
+            summary: userSpeech,
           });
 
-          // Step 3: Transition to Done state
-          setState("done");
-          const finalReply = await generateReply(userSpeech);
-          setAssistantReply(finalReply);
+          addExecutionStep("Event added to Google Calendar!");
+        }
+        // Route 2: Gmail Integration
+        else if (lowerInput.includes("email") || lowerInput.includes("mail")) {
+          if (!googleToken) {
+            const authErr =
+              "Please connect your Google Account in Settings to send emails.";
+            setAssistantReply(authErr);
+            speakWithExpoSpeech(authErr);
+            return;
+          }
 
-          // Step 4: Speak final completion message and reset to Idle
-          speak(finalReply, {
-            onStart: () => setState("speaking"),
-            onDone: () => setState("idle"),
-            onError: () => setState("idle"),
+          addExecutionStep("Preparing email payload...");
+          addExecutionStep("Sending message via Gmail API...");
+
+          await sendGmail({
+            accessToken: googleToken,
+            to: "me@example.com", // Adjust or parse dynamically
+            subject: "VoiAst Voice Action",
+            bodyText: userSpeech,
           });
-        }, 2000);
 
-        timerRefs.current.push(tStep1, tStep2);
-      },
-      onError: () => setState("idle"),
+          addExecutionStep("Email sent successfully!");
+        }
+        // Route 3: Local Notes Integration ($0 Local Storage)
+        else if (lowerInput.includes("note") || lowerInput.includes("remind")) {
+          addExecutionStep("Saving note to local storage...");
+          await saveNote(userSpeech);
+          addExecutionStep("Note saved locally!");
+        }
+
+        // Complete task in store
+        setLastTask({
+          id: Date.now().toString(),
+          title: userSpeech,
+          status: "completed",
+          completedAt: new Date().toLocaleTimeString(),
+        });
+
+        setState("done");
+        const finalReply = await askAI(
+          `Confirm to the user in 1 short sentence that this task was executed: "${userSpeech}"`,
+        );
+        setAssistantReply(finalReply);
+        speakWithExpoSpeech(finalReply);
+      } catch (err) {
+        console.error("[handleTaskExecutionFlow Error]:", err);
+        const failMsg =
+          "Sorry, I encountered an issue executing that service request.";
+        setAssistantReply(failMsg);
+        speakWithExpoSpeech(failMsg);
+      }
     });
   };
 
   // 4. Orb Press Interactor
-  const handleVoicePress = () => {
+  const handleVoicePress = async () => {
     if (state === "idle" || state === "done") {
       startRecording();
     } else if (state === "listening") {
       stopRecordingAndProcess();
     } else if (state === "speaking" || state === "executing") {
-      stopSpeaking();
+      Speech.stop();
       clearAllTimers();
       setState("idle");
     }

@@ -66,7 +66,7 @@ const CONFIG: Record<
     innerSpeed: 3000,
   },
 
-  success: {
+  done: {
     pulse: false,
     outerSpeed: 16000,
     middleSpeed: 11000,
@@ -79,8 +79,9 @@ export default function VoiceOrb({
   size = 240,
   onPress,
 }: VoiceOrbProps) {
-  const config = CONFIG[state];
-  const colors = VoiceColors[state];
+  // Safe fallbacks to avoid runtime crashes
+  const config = CONFIG[state] ?? CONFIG.idle;
+  const colors = VoiceColors[state] ?? VoiceColors.idle;
 
   const outerRing = size * 1.08;
   const middleRing = size * 0.95;
@@ -134,7 +135,6 @@ export default function VoiceOrb({
         break;
 
       case "executing":
-      case "speaking":
         scale.value = withRepeat(
           withSequence(
             withTiming(1.12, { duration: 350 }),
@@ -145,7 +145,18 @@ export default function VoiceOrb({
         );
         break;
 
-      case "success":
+      case "speaking":
+        scale.value = withRepeat(
+          withSequence(
+            withTiming(1.08, { duration: 400 }),
+            withTiming(1, { duration: 400 }),
+          ),
+          -1,
+          false,
+        );
+        break;
+
+      case "done":
         scale.value = withSequence(
           withTiming(1.18, { duration: 350 }),
           withTiming(1, { duration: 700 }),
@@ -162,9 +173,9 @@ export default function VoiceOrb({
     ],
   }));
 
-  // Only disable press interactions while AI is actively processing or speaking
-  const isBusy =
-    state === "thinking" || state === "executing" || state === "speaking";
+  // Only disable press when strictly processing background tasks/thinking.
+  // Speech interrupting is allowed!
+  const isBusy = state === "thinking" || state === "executing";
 
   return (
     <Animated.View style={animatedStyle}>
@@ -211,7 +222,7 @@ export default function VoiceOrb({
         >
           <Pressable
             onPress={onPress}
-            disabled={isBusy} // 👈 FIXED: Allows second tap while listening!
+            disabled={isBusy}
             hitSlop={12}
             style={{
               width: buttonSize,
@@ -239,7 +250,13 @@ export default function VoiceOrb({
             }}
           >
             <MaterialCommunityIcons
-              name={state === "listening" ? "stop" : "microphone"}
+              name={
+                state === "listening"
+                  ? "stop"
+                  : state === "speaking"
+                    ? "volume-off"
+                    : "microphone"
+              }
               size={iconSize}
               color="#FFFFFF"
             />
