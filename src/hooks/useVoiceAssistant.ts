@@ -10,6 +10,7 @@ import {
 import { saveNote } from "@/services/apps/notes";
 import { transcribeAudio } from "@/services/speech/elevenSTT";
 import {
+  resetVoiceDetection,
   shouldStopRecording,
   startRecorder,
   stopRecorder,
@@ -28,8 +29,13 @@ const TASK_KEYWORDS = [
   "remind",
 ];
 
-export function useVoiceAssistant(googleToken?: string) {
+export function useVoiceAssistant(
+  googleToken?: string,
+  assistantName: string = "VoiAst",
+  userName: string = "Ateeq Malkani",
+) {
   const timerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const isProcessingRef = useRef<boolean>(false);
   const [assistantReply, setAssistantReply] = useState<string | null>(null);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [permissionResponse, requestPermission] = Audio.usePermissions();
@@ -61,6 +67,18 @@ export function useVoiceAssistant(googleToken?: string) {
   }, []);
 
   /**
+   * Helper to strip out wake word prefix if spoken inside the audio (e.g. "Hey VoiAst, schedule a meeting")
+   */
+  const cleanWakeWordPrefix = (text: string): string => {
+    const lowerName = assistantName.toLowerCase();
+    const pattern = new RegExp(
+      `^(hey|hi|ok|hello)?\\s*${lowerName}[,\\s]*`,
+      "i",
+    );
+    return text.replace(pattern, "").trim();
+  };
+
+  /**
    * Speaks text using native Expo Speech (Device-level TTS)
    */
   const speakWithExpoSpeech = (text: string, onDoneCallback?: () => void) => {
@@ -73,6 +91,7 @@ export function useVoiceAssistant(googleToken?: string) {
         pitch: 1.0,
         rate: 1.0,
         onDone: () => {
+          isProcessingRef.current = false;
           if (onDoneCallback) {
             onDoneCallback();
           } else {
@@ -81,11 +100,13 @@ export function useVoiceAssistant(googleToken?: string) {
         },
         onError: (error) => {
           console.error("[useVoiceAssistant] expo-speech Error:", error);
+          isProcessingRef.current = false;
           setState("idle");
         },
       });
     } catch (error) {
       console.error("[useVoiceAssistant] Speech Invocation Error:", error);
+      isProcessingRef.current = false;
       setState("idle");
     }
   };
@@ -97,11 +118,12 @@ export function useVoiceAssistant(googleToken?: string) {
     shouldStopRecording(status.metering ?? -160, stopRecordingAndProcess);
   };
 
-  // 1. Start Voice Recording
+  // 1. Start Voice Recording (Triggered manually or automatically via Wake-Word)
   async function startRecording() {
     try {
       Speech.stop();
       clearAllTimers();
+      resetVoiceDetection();
 
       const newRecording = await startRecorder(
         permissionResponse,
@@ -115,15 +137,17 @@ export function useVoiceAssistant(googleToken?: string) {
       setExecutionSteps([]);
       setState("listening");
     } catch (err) {
-      console.error(err);
+      console.error("[startRecording Error]:", err);
+      isProcessingRef.current = false;
       Alert.alert("Microphone", "Please allow microphone permission.");
     }
   }
 
   // 2. Stop Voice Recording & Process Pipeline
   async function stopRecordingAndProcess() {
-    if (!recording) return;
+    if (!recording || isProcessingRef.current) return;
 
+    isProcessingRef.current = true;
     setState("thinking");
     const currentRecording = recording;
     setRecording(null);
@@ -133,6 +157,7 @@ export function useVoiceAssistant(googleToken?: string) {
 
       if (!uri) {
         console.warn("No recording URI found.");
+        isProcessingRef.current = false;
         setState("idle");
         return;
       }
@@ -149,9 +174,13 @@ export function useVoiceAssistant(googleToken?: string) {
         return;
       }
 
-      processSpeechInteraction(recognizedText);
+      // Filter out leading trigger words (e.g., "Hey VoiAst...")
+      const cleanedCommand = cleanWakeWordPrefix(recognizedText);
+
+      await processSpeechInteraction(cleanedCommand || recognizedText);
     } catch (error) {
       console.error("Failed to process recording:", error);
+      isProcessingRef.current = false;
       setState("idle");
     }
   }
@@ -178,11 +207,12 @@ export function useVoiceAssistant(googleToken?: string) {
   // ─── FLOW A: Conversational (Chat / Q&A) ───────────────────────────────────
   const handleConversationalFlow = async (userSpeech: string) => {
     try {
-      const reply = await askAI(userSpeech);
+      const reply = await askAI(userSpeech, assistantName, userName);
       setAssistantReply(reply);
       speakWithExpoSpeech(reply);
     } catch (error) {
       console.error("Error in conversational flow:", error);
+      isProcessingRef.current = false;
       setState("idle");
     }
   };
@@ -238,8 +268,8 @@ export function useVoiceAssistant(googleToken?: string) {
 
           await sendGmail({
             accessToken: googleToken,
-            to: "me@example.com", // Adjust or parse dynamically
-            subject: "VoiAst Voice Action",
+            to: "me@example.com",
+            subject: `${assistantName} Voice Action`,
             bodyText: userSpeech,
           });
 
@@ -263,6 +293,8 @@ export function useVoiceAssistant(googleToken?: string) {
         setState("done");
         const finalReply = await askAI(
           `Confirm to the user in 1 short sentence that this task was executed: "${userSpeech}"`,
+          assistantName,
+          userName,
         );
         setAssistantReply(finalReply);
         speakWithExpoSpeech(finalReply);
@@ -276,7 +308,7 @@ export function useVoiceAssistant(googleToken?: string) {
     });
   };
 
-  // 4. Orb Press Interactor
+  // 4. Orb Press or Hands-Free Trigger Interactor
   const handleVoicePress = async () => {
     if (state === "idle" || state === "done") {
       startRecording();
@@ -285,7 +317,8 @@ export function useVoiceAssistant(googleToken?: string) {
     } else if (state === "speaking" || state === "executing") {
       Speech.stop();
       clearAllTimers();
-      setState("idle");
+      isProcessingRef.current = false;
+      startRecording();
     }
   };
 
@@ -294,6 +327,7 @@ export function useVoiceAssistant(googleToken?: string) {
     transcript,
     assistantReply,
     recording,
+    startRecording,
     handleVoicePress,
     processSpeechInteraction,
     resetVoiceState,

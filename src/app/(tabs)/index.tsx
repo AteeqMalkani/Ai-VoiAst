@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -17,13 +18,17 @@ import Waveform from "@/components/voice/Waveform";
 export default function Home() {
   const { user, signOut } = useAuth();
 
+  // Assistant & User personalization state
+  const [assistantName, setAssistantName] = useState("VoiAst");
+  const [userTitle, setUserTitle] = useState("Ateeq Malkani");
+
   const {
     state,
     transcript,
     assistantReply,
     handleVoicePress,
     processSpeechInteraction,
-  } = useVoiceAssistant();
+  } = useVoiceAssistant(undefined, assistantName, userTitle);
 
   const executionSteps = useVoiceStore((s) => s.executionSteps);
 
@@ -41,7 +46,16 @@ export default function Home() {
     }
   };
 
-  const username = user?.displayName || user?.email?.split("@")[0] || "User";
+  const handleSavePreferences = (
+    newAssistantName: string,
+    newUserName: string,
+  ) => {
+    if (newAssistantName.trim()) setAssistantName(newAssistantName.trim());
+    if (newUserName.trim()) setUserTitle(newUserName.trim());
+  };
+
+  const username =
+    userTitle || user?.displayName || user?.email?.split("@")[0] || "User";
   const isBusy = state !== "idle" && state !== "done";
 
   const getHeroTitle = () => {
@@ -55,7 +69,7 @@ export default function Home() {
       case "done":
         return "Task Completed!";
       case "speaking":
-        return "VoiAst Speaking";
+        return `${assistantName} Speaking`;
       case "idle":
       default:
         return "How can I help today?";
@@ -82,7 +96,10 @@ export default function Home() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#070B14" }}>
-      <HeaderSettings onSelectOption={handleOptionSelect} />
+      <HeaderSettings
+        onSelectOption={handleOptionSelect}
+        onSavePreferences={handleSavePreferences}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}

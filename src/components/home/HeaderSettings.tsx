@@ -6,16 +6,23 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 
 interface HeaderSettingsProps {
   onSelectOption?: (key: string) => void;
+  onSavePreferences?: (assistantName: string, userName: string) => void;
 }
 
-export const HeaderSettings = ({ onSelectOption }: HeaderSettingsProps) => {
+export const HeaderSettings = ({
+  onSelectOption,
+  onSavePreferences,
+}: HeaderSettingsProps) => {
   const [modalVisible, setModalVisible] = useState(false);
+  const [assistantName, setAssistantName] = useState("VoiAst");
+  const [userName, setUserName] = useState("Ateeq Malkani");
 
   const menuItems = [
     { id: "profile", label: "Profile", icon: "person-outline" },
@@ -32,6 +39,9 @@ export const HeaderSettings = ({ onSelectOption }: HeaderSettingsProps) => {
   ];
 
   const handlePress = (id: string) => {
+    if (onSavePreferences) {
+      onSavePreferences(assistantName, userName);
+    }
     setModalVisible(false);
     if (onSelectOption) {
       onSelectOption(id);
@@ -74,6 +84,32 @@ export const HeaderSettings = ({ onSelectOption }: HeaderSettingsProps) => {
             </View>
 
             <ScrollView bounces={false} style={styles.optionsList}>
+              {/* Personalization Inputs */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Assistant Name</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={assistantName}
+                  onChangeText={setAssistantName}
+                  placeholder="e.g. Gem, Jarvis"
+                  placeholderTextColor="#64748B"
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Your Name / Title</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={userName}
+                  onChangeText={setUserName}
+                  placeholder="e.g. Boss, Sir"
+                  placeholderTextColor="#64748B"
+                />
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* Menu Items */}
               {menuItems.map((item, index) => (
                 <TouchableOpacity
                   key={item.id}
@@ -140,7 +176,7 @@ const styles = StyleSheet.create({
     paddingRight: 20,
   },
   menuCard: {
-    width: 240,
+    width: 260,
     backgroundColor: "#111827",
     borderRadius: 16,
     borderWidth: 1,
@@ -169,17 +205,45 @@ const styles = StyleSheet.create({
   optionsList: {
     paddingVertical: 4,
   },
+  inputContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  inputLabel: {
+    color: "#64748B",
+    fontSize: 11,
+    fontWeight: "600",
+    marginBottom: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  textInput: {
+    backgroundColor: "#0B0F19",
+    borderWidth: 1,
+    borderColor: "#1E293B",
+    borderRadius: 8,
+    color: "#F8FAFC",
+    fontSize: 13,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#1E293B",
+    marginVertical: 10,
+  },
   optionRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 16,
   },
   lastRow: {
     borderTopWidth: 1,
     borderTopColor: "#1E293B",
     marginTop: 4,
+    paddingTop: 12,
   },
   optionLeft: {
     flexDirection: "row",

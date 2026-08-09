@@ -1,6 +1,7 @@
 import { Audio } from "expo-av";
 
-export const SILENCE_THRESHOLD_DB = -35;
+// -42 dB is a safer baseline for quiet environments/mobile microphones
+export const SILENCE_THRESHOLD_DB = -42;
 export const SILENCE_DURATION_MS = 1500;
 
 let lastSpokenTime = Date.now();
@@ -14,15 +15,19 @@ export function resetVoiceDetection() {
 export function shouldStopRecording(metering: number, onSilence: () => void) {
   if (isStopping) return;
 
+  // Metering values range from -160 (silence) to 0 (max volume)
   if (metering > SILENCE_THRESHOLD_DB) {
     lastSpokenTime = Date.now();
     return;
   }
 
-  const silence = Date.now() - lastSpokenTime;
+  const silenceDuration = Date.now() - lastSpokenTime;
 
-  if (silence > SILENCE_DURATION_MS) {
+  if (silenceDuration >= SILENCE_DURATION_MS) {
     isStopping = true;
+    console.log(
+      "[Recorder]: Silence threshold reached. Auto-stopping recording...",
+    );
     onSilence();
   }
 }
@@ -47,13 +52,24 @@ export async function startRecorder(
 
   resetVoiceDetection();
 
-  const { recording } = await Audio.Recording.createAsync(
-    {
-      ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
-      isMeteringEnabled: true,
+  // Explicit preset config ensuring platform-specific metering is enabled
+  const recordingOptions: Audio.RecordingOptions = {
+    ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
+    isMeteringEnabled: true,
+    android: {
+      ...Audio.RecordingOptionsPresets.HIGH_QUALITY.android,
+      // Android metering enabled option is handled by top-level isMeteringEnabled
     },
+    ios: {
+      ...Audio.RecordingOptionsPresets.HIGH_QUALITY.ios,
+      // iOS RecordingOptionsIOS has no meteringEnabled property; use isMeteringEnabled
+    },
+  };
+
+  const { recording } = await Audio.Recording.createAsync(
+    recordingOptions,
     onStatus,
-    100,
+    100, // Status callback interval in ms
   );
 
   return recording;
@@ -62,7 +78,11 @@ export async function startRecorder(
 export async function stopRecorder(
   recording: Audio.Recording,
 ): Promise<string | null> {
-  await recording.stopAndUnloadAsync();
+  try {
+    await recording.stopAndUnloadAsync();
+  } catch (error) {
+    console.warn("[Recorder]: Error stopping recording:", error);
+  }
 
   await Audio.setAudioModeAsync({
     allowsRecordingIOS: false,
