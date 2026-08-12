@@ -1,4 +1,6 @@
+// src/hooks/useVoiceAssistant.ts
 import { Audio } from "expo-av";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Speech from "expo-speech";
 import { useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
@@ -16,7 +18,9 @@ import {
   stopRecorder,
 } from "@/services/speech/recorder";
 import { useVoiceStore } from "@/store/voiceStore";
-import { askAI } from "../services/ai/openrouter";
+import { askAI } from "../services/ai/assistant";
+
+const SETTINGS_STORAGE_KEY = "@voiast_general_settings";
 
 const TASK_KEYWORDS = [
   "email",
@@ -40,6 +44,13 @@ export function useVoiceAssistant(
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [permissionResponse, requestPermission] = Audio.usePermissions();
 
+  // Settings configuration states loaded from storage
+  const [settings, setSettings] = useState({
+    selectedLanguage: "en-US",
+    selectedVoice: "",
+    responseStyle: "Balanced",
+  });
+
   const {
     state,
     transcript,
@@ -56,6 +67,26 @@ export function useVoiceAssistant(
     timerRefs.current = [];
   };
 
+  // Load saved general settings on mount
+  useEffect(() => {
+    async function loadStoredSettings() {
+      try {
+        const stored = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setSettings({
+            selectedLanguage: parsed.selectedLanguage || "en-US",
+            selectedVoice: parsed.selectedVoice || "",
+            responseStyle: parsed.responseStyle || "Balanced",
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load settings in voice hook:", error);
+      }
+    }
+    loadStoredSettings();
+  }, []);
+
   useEffect(() => {
     return () => {
       clearAllTimers();
@@ -66,9 +97,6 @@ export function useVoiceAssistant(
     };
   }, []);
 
-  /**
-   * Helper to strip out wake word prefix if spoken inside the audio (e.g. "Hey VoiAst, schedule a meeting")
-   */
   const cleanWakeWordPrefix = (text: string): string => {
     const lowerName = assistantName.toLowerCase();
     const pattern = new RegExp(
@@ -79,15 +107,15 @@ export function useVoiceAssistant(
   };
 
   /**
-   * Speaks text using native Expo Speech (Device-level TTS)
+   * Speaks text using native Expo Speech, applying user's language, voice model, and rate adjustments.
    */
   const speakWithExpoSpeech = (text: string, onDoneCallback?: () => void) => {
     try {
       Speech.stop();
       setState("speaking");
 
-      Speech.speak(text, {
-        language: "en-US",
+      const speechOptions: Speech.SpeechOptions = {
+        language: settings.selectedLanguage,
         pitch: 1.0,
         rate: 1.0,
         onDone: () => {
@@ -103,7 +131,17 @@ export function useVoiceAssistant(
           isProcessingRef.current = false;
           setState("idle");
         },
-      });
+      };
+
+      // Pass voice identifier if user selected a custom local voice
+      if (
+        settings.selectedVoice &&
+        settings.selectedVoice !== "Default Voice"
+      ) {
+        speechOptions.voice = settings.selectedVoice;
+      }
+
+      Speech.speak(text, speechOptions);
     } catch (error) {
       console.error("[useVoiceAssistant] Speech Invocation Error:", error);
       isProcessingRef.current = false;
@@ -111,14 +149,11 @@ export function useVoiceAssistant(
     }
   };
 
-  // Monitor audio levels for Silence Auto-Detection
   const onRecordingStatusUpdate = (status: Audio.RecordingStatus) => {
     if (!status.isRecording) return;
-
     shouldStopRecording(status.metering ?? -160, stopRecordingAndProcess);
   };
 
-  // 1. Start Voice Recording (Triggered manually or automatically via Wake-Word)
   async function startRecording() {
     try {
       Speech.stop();
@@ -143,7 +178,6 @@ export function useVoiceAssistant(
     }
   }
 
-  // 2. Stop Voice Recording & Process Pipeline
   async function stopRecordingAndProcess() {
     if (!recording || isProcessingRef.current) return;
 
@@ -162,7 +196,6 @@ export function useVoiceAssistant(
         return;
       }
 
-      // Transcribe audio via ElevenLabs STT
       const recognizedText = await transcribeAudio(uri);
 
       if (!recognizedText || recognizedText.trim().length === 0) {
@@ -174,9 +207,7 @@ export function useVoiceAssistant(
         return;
       }
 
-      // Filter out leading trigger words (e.g., "Hey VoiAst...")
       const cleanedCommand = cleanWakeWordPrefix(recognizedText);
-
       await processSpeechInteraction(cleanedCommand || recognizedText);
     } catch (error) {
       console.error("Failed to process recording:", error);
@@ -185,13 +216,11 @@ export function useVoiceAssistant(
     }
   }
 
-  // Helper to determine if prompt is an action task
   const isTaskRequest = (input: string): boolean => {
     const lower = input.toLowerCase();
     return TASK_KEYWORDS.some((keyword) => lower.includes(keyword));
   };
 
-  // 3. Main Pipeline Coordinator
   const processSpeechInteraction = async (userSpeech: string) => {
     clearAllTimers();
     setTranscript(userSpeech);
@@ -204,10 +233,12 @@ export function useVoiceAssistant(
     }
   };
 
-  // ─── FLOW A: Conversational (Chat / Q&A) ───────────────────────────────────
   const handleConversationalFlow = async (userSpeech: string) => {
     try {
-      const reply = await askAI(userSpeech, assistantName, userName);
+      // Append style context instruction based on user's General preference
+      const styledPrompt = `[Response Style Preference: ${settings.responseStyle}] ${userSpeech}`;
+      const reply = await askAI(styledPrompt, assistantName, userName);
+
       setAssistantReply(reply);
       speakWithExpoSpeech(reply);
     } catch (error) {
@@ -217,7 +248,6 @@ export function useVoiceAssistant(
     }
   };
 
-  // ─── FLOW B: Task Execution ────────────────────────────────────────────────
   const handleTaskExecutionFlow = async (userSpeech: string) => {
     const initialAck = "On it. Processing your request now.";
     setAssistantReply(initialAck);
@@ -229,7 +259,6 @@ export function useVoiceAssistant(
       const lowerInput = userSpeech.toLowerCase();
 
       try {
-        // Route 1: Calendar Integration
         if (
           lowerInput.includes("meeting") ||
           lowerInput.includes("schedule") ||
@@ -252,9 +281,10 @@ export function useVoiceAssistant(
           });
 
           addExecutionStep("Event added to Google Calendar!");
-        }
-        // Route 2: Gmail Integration
-        else if (lowerInput.includes("email") || lowerInput.includes("mail")) {
+        } else if (
+          lowerInput.includes("email") ||
+          lowerInput.includes("mail")
+        ) {
           if (!googleToken) {
             const authErr =
               "Please connect your Google Account in Settings to send emails.";
@@ -274,15 +304,15 @@ export function useVoiceAssistant(
           });
 
           addExecutionStep("Email sent successfully!");
-        }
-        // Route 3: Local Notes Integration ($0 Local Storage)
-        else if (lowerInput.includes("note") || lowerInput.includes("remind")) {
+        } else if (
+          lowerInput.includes("note") ||
+          lowerInput.includes("remind")
+        ) {
           addExecutionStep("Saving note to local storage...");
           await saveNote(userSpeech);
           addExecutionStep("Note saved locally!");
         }
 
-        // Complete task in store
         setLastTask({
           id: Date.now().toString(),
           title: userSpeech,
@@ -292,7 +322,7 @@ export function useVoiceAssistant(
 
         setState("done");
         const finalReply = await askAI(
-          `Confirm to the user in 1 short sentence that this task was executed: "${userSpeech}"`,
+          `Confirm to the user in 1 short sentence (${settings.responseStyle} style) that this task was executed: "${userSpeech}"`,
           assistantName,
           userName,
         );
@@ -308,7 +338,6 @@ export function useVoiceAssistant(
     });
   };
 
-  // 4. Orb Press or Hands-Free Trigger Interactor
   const handleVoicePress = async () => {
     if (state === "idle" || state === "done") {
       startRecording();

@@ -11,7 +11,9 @@
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.malkani.VoiAst",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSSpeechRecognitionUsageDescription": "Allow $(PRODUCT_NAME) to use speech recognition.",
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to use the microphone."
       }
     },
     "android": {
@@ -66,6 +68,7 @@
       "eas": {
         "projectId": "293c84ba-c23b-4ec6-8b33-0a8713f5fa83"
       }
-    }
+    },
+    "owner": "malkani"
   }
 }

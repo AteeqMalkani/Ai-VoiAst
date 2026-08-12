@@ -1,4 +1,4 @@
-import * as Speech from "expo-speech";
+// src/services/ai/assistant.ts
 import { transcribeAudio } from "../speech/elevenSTT";
 
 const API_KEY = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY;
@@ -14,42 +14,6 @@ export interface VoiceAssistantResponse {
   assistantText: string;
 }
 
-/**
- * Native Text-to-Speech Helper (expo-speech)
- */
-export function speakText(
-  text: string,
-  onDone?: () => void,
-  onError?: (error: Error) => void,
-): void {
-  try {
-    Speech.stop();
-    Speech.speak(text, {
-      language: "en-US",
-      pitch: 1.0,
-      rate: 1.0,
-      onDone,
-      onError: (err: any) => {
-        console.error("[Speech Error]:", err);
-        if (onError) onError(new Error("Speech playback failed"));
-      },
-    });
-  } catch (error) {
-    console.error("[Speech Exception]:", error);
-    if (onError) onError(error as Error);
-  }
-}
-
-/**
- * Stops any ongoing native speech synthesis
- */
-export function stopSpeech(): void {
-  Speech.stop();
-}
-
-/**
- * Core LLM caller using OpenRouter
- */
 export async function askAI(
   prompt: string,
   assistantName: string = "VoiAst",
@@ -66,12 +30,13 @@ export async function askAI(
 CRITICAL IDENTITY INSTRUCTION: Your name is strictly "${assistantName}". NEVER state that you are an AI without this identity, and never deny being named "${assistantName}".
 You are assisting ${userName}. Address them as ${userName} naturally when appropriate.
 
-Follow these strict speech rules for EVERY response:
+Follow these strict speech and interaction rules for EVERY response:
 1. Speak naturally like a real person in conversation.
 2. Keep responses very short (maximum 1 to 2 sentences).
 3. NO markdown formatting—never use asterisks, bold text, bullet points, or lists.
 4. Give single, straightforward numbers. Do not list unit conversions or min/max ranges unless directly asked.
 5. Use natural contractions (e.g., "it's", "there's", "you'll").
+6. INTERACTIVE CLARIFICATION: If the user's command or request is vague, incomplete, or missing critical details (like time, recipient, or specifics), do not guess. Instead, ask a short, polite clarifying question to gather the missing information.
 `;
 
   for (const model of FREE_MODELS) {
@@ -87,7 +52,7 @@ Follow these strict speech rules for EVERY response:
             "X-Title": `${assistantName} Voice Assistant`,
           },
           body: JSON.stringify({
-            model: model,
+            model,
             messages: [
               { role: "system", content: VOICE_SYSTEM_INSTRUCTION },
               { role: "user", content: prompt },
@@ -109,12 +74,9 @@ Follow these strict speech rules for EVERY response:
     }
   }
 
-  return "Sorry! I didn't understand can you repeat what you said";
+  return "Sorry, I didn't get that. Could you please repeat?";
 }
 
-/**
- * End-to-end processing helper for direct audio-to-text pipeline runs
- */
 export async function processVoiceInput(
   audioUri: string,
   assistantName: string = "VoiAst",
@@ -127,7 +89,6 @@ export async function processVoiceInput(
   }
 
   const assistantText = await askAI(userText, assistantName, userName);
-  speakText(assistantText);
 
   return { userText, assistantText };
 }

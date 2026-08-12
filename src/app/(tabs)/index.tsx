@@ -1,3 +1,4 @@
+// src/app/(tabs)/index.tsx
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -32,6 +33,7 @@ export default function Home() {
 
   const executionSteps = useVoiceStore((s) => s.executionSteps);
 
+  // Handle routing for individual setting choices
   const handleOptionSelect = async (option: string) => {
     if (option === "logout") {
       try {
@@ -41,6 +43,12 @@ export default function Home() {
       } finally {
         router.replace("/(auth)/login");
       }
+    } else if (option === "general") {
+      router.push("/settings/general" as any);
+    } else if (option === "profile") {
+      router.push("/settings/profile" as any);
+    } else if (option === "connected_apps") {
+      router.push("/settings/connected-apps" as any);
     } else {
       router.push(`/settings/${option.replace("_", "-")}` as any);
     }

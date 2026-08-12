@@ -1,16 +1,22 @@
+// src/app/settings/connected-apps.tsx
 import { auth } from "@/firebase/config";
 import {
   checkGoogleConnectionState,
   signInWithGoogle,
 } from "@/services/googleAuth";
+import {
+  FontAwesome5,
+  Ionicons,
+  MaterialCommunityIcons,
+} from "@expo/vector-icons";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -25,7 +31,6 @@ export default function ConnectedAppsScreen() {
     automate: true,
   });
 
-  // Check existing Google authentication state on mount using cross-platform helper
   useEffect(() => {
     checkGoogleConnection();
   }, []);
@@ -41,7 +46,6 @@ export default function ConnectedAppsScreen() {
 
     try {
       if (isGoogleConnected) {
-        // Disconnect: Sign out from Google & Firebase Auth
         try {
           await GoogleSignin.signOut();
         } catch {
@@ -51,7 +55,6 @@ export default function ConnectedAppsScreen() {
         setIsGoogleConnected(false);
         Alert.alert("Disconnected", "Google Calendar unlinked.");
       } else {
-        // Connect: Trigger Google OAuth Sign-In flow
         const result = await signInWithGoogle();
         if (result) {
           setIsGoogleConnected(true);
@@ -72,7 +75,6 @@ export default function ConnectedAppsScreen() {
     setConnections((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Safe back navigation handler
   const handleBack = () => {
     if (router.canGoBack()) {
       router.back();
@@ -83,7 +85,7 @@ export default function ConnectedAppsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Back Button */}
+      {/* Styled Back Button */}
       <TouchableOpacity
         style={styles.backButton}
         onPress={handleBack}
@@ -91,7 +93,8 @@ export default function ConnectedAppsScreen() {
         accessibilityRole="button"
         accessibilityLabel="Go back"
       >
-        <Text style={styles.backText}>← Back</Text>
+        <Ionicons name="arrow-back" size={18} color="#94A3B8" />
+        <Text style={styles.backText}>Back</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>Connected Apps</Text>
@@ -99,79 +102,225 @@ export default function ConnectedAppsScreen() {
         Manage third-party services linked with VoiAst.
       </Text>
 
-      <View style={styles.list}>
-        {/* Google Calendar Toggle */}
-        <View style={styles.appRow}>
-          <View style={styles.textContainer}>
-            <Text style={styles.appName}>📅 Google Calendar</Text>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={styles.gridContainer}>
+          {/* Google Calendar Card */}
+          <View
+            style={[
+              styles.card,
+              isGoogleConnected
+                ? styles.connectedCardGlow
+                : styles.disconnectedCard,
+            ]}
+          >
+            <View style={styles.iconCircle}>
+              <FontAwesome5 name="calendar-alt" size={28} color="#4285F4" />
+            </View>
+            <Text style={styles.appName}>Google Calendar</Text>
             <Text style={styles.appDesc}>
               Sync meetings and set automated schedule reminders
             </Text>
-          </View>
-          {loading ? (
-            <ActivityIndicator size="small" color="#2563EB" />
-          ) : (
-            <Switch
-              value={isGoogleConnected}
-              onValueChange={handleGoogleToggle}
-              trackColor={{ false: "#374151", true: "#2563EB" }}
-            />
-          )}
-        </View>
 
-        {/* Local Notes Toggle */}
-        <View style={styles.appRow}>
-          <View style={styles.textContainer}>
-            <Text style={styles.appName}>📄 Notes</Text>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleGoogleToggle}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#38BDF8" />
+              ) : (
+                <Text
+                  style={[
+                    styles.actionBtnText,
+                    isGoogleConnected
+                      ? styles.disconnectText
+                      : styles.connectText,
+                  ]}
+                >
+                  {isGoogleConnected ? "DISCONNECT" : "CONNECT"}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Notes Card */}
+          <View
+            style={[
+              styles.card,
+              connections.notes
+                ? styles.connectedCardGlow
+                : styles.disconnectedCard,
+            ]}
+          >
+            <View style={styles.iconCircle}>
+              <Ionicons name="document-text" size={32} color="#94A3B8" />
+            </View>
+            <Text style={styles.appName}>Notes</Text>
             <Text style={styles.appDesc}>
               Create voice notes and capture quick thoughts
             </Text>
-          </View>
-          <Switch
-            value={connections.notes}
-            onValueChange={() => toggleLocalSwitch("notes")}
-            trackColor={{ false: "#374151", true: "#2563EB" }}
-          />
-        </View>
 
-        {/* Automate Runner Toggle */}
-        <View style={styles.appRow}>
-          <View style={styles.textContainer}>
-            <Text style={styles.appName}>🤖 Automate Runner</Text>
-            <Text style={styles.appDesc}>Execute multi-step task flows</Text>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => toggleLocalSwitch("notes")}
+            >
+              <Text
+                style={[
+                  styles.actionBtnText,
+                  connections.notes
+                    ? styles.disconnectText
+                    : styles.connectText,
+                ]}
+              >
+                {connections.notes ? "DISCONNECT" : "CONNECT"}
+              </Text>
+            </TouchableOpacity>
           </View>
-          <Switch
-            value={connections.automate}
-            onValueChange={() => toggleLocalSwitch("automate")}
-            trackColor={{ false: "#374151", true: "#2563EB" }}
-          />
+
+          {/* Automate Runner Card */}
+          <View
+            style={[
+              styles.card,
+              connections.automate
+                ? styles.connectedCardGlow
+                : styles.disconnectedCard,
+            ]}
+          >
+            <View style={styles.iconCircle}>
+              <MaterialCommunityIcons name="robot" size={34} color="#818CF8" />
+            </View>
+            <Text style={styles.appName}>Automate Runner</Text>
+            <Text style={styles.appDesc}>Execute multi-step task flows</Text>
+
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => toggleLocalSwitch("automate")}
+            >
+              <Text
+                style={[
+                  styles.actionBtnText,
+                  connections.automate
+                    ? styles.disconnectText
+                    : styles.connectText,
+                ]}
+              >
+                {connections.automate ? "DISCONNECT" : "CONNECT"}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0B0F19", padding: 24 },
+  container: {
+    flex: 1,
+    backgroundColor: "#070B14",
+    paddingHorizontal: 24,
+    paddingTop: 24,
+  },
   backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0F172A",
+    borderWidth: 1,
+    borderColor: "#1E293B",
     paddingVertical: 8,
-    paddingRight: 16,
+    paddingHorizontal: 14,
+    borderRadius: 12,
     alignSelf: "flex-start",
     marginBottom: 16,
+    gap: 8,
   },
-  backText: { color: "#9CA3AF", fontSize: 16, fontWeight: "500" },
-  title: { color: "#FFF", fontSize: 24, fontWeight: "700", marginBottom: 8 },
-  subtitle: { color: "#9CA3AF", fontSize: 14, marginBottom: 24 },
-  list: { backgroundColor: "#111827", borderRadius: 16, padding: 16 },
-  appRow: {
+  backText: {
+    color: "#94A3B8",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  title: {
+    color: "#FFFFFF",
+    fontSize: 28,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  subtitle: {
+    color: "#94A3B8",
+    fontSize: 15,
+    marginBottom: 24,
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  gridContainer: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#1F2937",
+    gap: 16,
   },
-  textContainer: { flex: 1, paddingRight: 12 },
-  appName: { color: "#FFF", fontSize: 16, fontWeight: "600", marginBottom: 4 },
-  appDesc: { color: "#9CA3AF", fontSize: 12 },
+  card: {
+    width: "47.5%",
+    minHeight: 220,
+    backgroundColor: "#0F172A",
+    borderRadius: 20,
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  disconnectedCard: {
+    borderWidth: 1,
+    borderColor: "#1E293B",
+  },
+  connectedCardGlow: {
+    borderWidth: 1.5,
+    borderColor: "#38BDF8",
+    shadowColor: "#38BDF8",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#1E293B",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  appName: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 6,
+  },
+  appDesc: {
+    color: "#94A3B8",
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  actionButton: {
+    marginTop: "auto",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  actionBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+  },
+  connectText: {
+    color: "#38BDF8",
+  },
+  disconnectText: {
+    color: "#818CF8",
+  },
 });

@@ -1,4 +1,6 @@
+// src/components/home/HeaderSettings.tsx
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   Modal,
@@ -20,29 +22,22 @@ export const HeaderSettings = ({
   onSelectOption,
   onSavePreferences,
 }: HeaderSettingsProps) => {
+  const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
   const [assistantName, setAssistantName] = useState("VoiAst");
   const [userName, setUserName] = useState("Ateeq Malkani");
-
-  const menuItems = [
-    { id: "profile", label: "Profile", icon: "person-outline" },
-    { id: "theme", label: "Theme", icon: "color-palette-outline" },
-    { id: "voice", label: "Voice", icon: "mic-outline" },
-    { id: "language", label: "Language", icon: "language-outline" },
-    { id: "connected_apps", label: "Connected Apps", icon: "apps-outline" },
-    {
-      id: "logout",
-      label: "Logout",
-      icon: "log-out-outline",
-      isDestructive: true,
-    },
-  ];
 
   const handlePress = (id: string) => {
     if (onSavePreferences) {
       onSavePreferences(assistantName, userName);
     }
     setModalVisible(false);
+
+    if (id === "general") {
+      router.push("/settings/general" as any);
+      return;
+    }
+
     if (onSelectOption) {
       onSelectOption(id);
     }
@@ -91,7 +86,7 @@ export const HeaderSettings = ({
                   style={styles.textInput}
                   value={assistantName}
                   onChangeText={setAssistantName}
-                  placeholder="e.g. Gem, Jarvis"
+                  placeholder="e.g. VoiAst"
                   placeholderTextColor="#64748B"
                 />
               </View>
@@ -102,46 +97,64 @@ export const HeaderSettings = ({
                   style={styles.textInput}
                   value={userName}
                   onChangeText={setUserName}
-                  placeholder="e.g. Boss, Sir"
+                  placeholder="e.g. Ateeq"
                   placeholderTextColor="#64748B"
                 />
               </View>
 
               <View style={styles.divider} />
 
-              {/* Menu Items */}
-              {menuItems.map((item, index) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[
-                    styles.optionRow,
-                    index === menuItems.length - 1 && styles.lastRow,
-                  ]}
-                  onPress={() => handlePress(item.id)}
-                  activeOpacity={0.6}
-                >
-                  <View style={styles.optionLeft}>
-                    <Ionicons
-                      name={item.icon as any}
-                      size={20}
-                      color={item.isDestructive ? "#EF4444" : "#94A3B8"}
-                    />
-                    <Text
-                      style={[
-                        styles.optionLabel,
-                        item.isDestructive && styles.destructiveLabel,
-                      ]}
-                    >
-                      {item.label}
-                    </Text>
-                  </View>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={16}
-                    color={item.isDestructive ? "#EF4444" : "#334155"}
-                  />
-                </TouchableOpacity>
-              ))}
+              {/* General Option */}
+              <TouchableOpacity
+                style={styles.optionRow}
+                onPress={() => handlePress("general")}
+                activeOpacity={0.6}
+              >
+                <View style={styles.optionLeft}>
+                  <Ionicons name="options-outline" size={18} color="#94A3B8" />
+                  <Text style={styles.optionLabel}>General</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#334155" />
+              </TouchableOpacity>
+
+              {/* Profile */}
+              <TouchableOpacity
+                style={styles.optionRow}
+                onPress={() => handlePress("profile")}
+                activeOpacity={0.6}
+              >
+                <View style={styles.optionLeft}>
+                  <Ionicons name="person-outline" size={18} color="#94A3B8" />
+                  <Text style={styles.optionLabel}>Profile</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#334155" />
+              </TouchableOpacity>
+
+              {/* Connected Apps */}
+              <TouchableOpacity
+                style={styles.optionRow}
+                onPress={() => handlePress("connected_apps")}
+                activeOpacity={0.6}
+              >
+                <View style={styles.optionLeft}>
+                  <Ionicons name="apps-outline" size={18} color="#94A3B8" />
+                  <Text style={styles.optionLabel}>Connected Apps</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#334155" />
+              </TouchableOpacity>
+
+              {/* Logout */}
+              <TouchableOpacity
+                style={styles.logoutRow}
+                onPress={() => handlePress("logout")}
+                activeOpacity={0.6}
+              >
+                <View style={styles.optionLeft}>
+                  <Ionicons name="log-out-outline" size={18} color="#EF4444" />
+                  <Text style={styles.destructiveLabel}>Logout</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#EF4444" />
+              </TouchableOpacity>
             </ScrollView>
           </Pressable>
         </Pressable>
@@ -176,9 +189,9 @@ const styles = StyleSheet.create({
     paddingRight: 20,
   },
   menuCard: {
-    width: 260,
-    backgroundColor: "#111827",
-    borderRadius: 16,
+    width: 270,
+    backgroundColor: "#0F172A",
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: "#1E293B",
     paddingVertical: 8,
@@ -200,7 +213,7 @@ const styles = StyleSheet.create({
   menuTitle: {
     color: "#FFFFFF",
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   optionsList: {
     paddingVertical: 4,
@@ -211,21 +224,21 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     color: "#64748B",
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10,
+    fontWeight: "700",
     marginBottom: 4,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   textInput: {
-    backgroundColor: "#0B0F19",
+    backgroundColor: "#070B14",
     borderWidth: 1,
     borderColor: "#1E293B",
     borderRadius: 8,
     color: "#F8FAFC",
     fontSize: 13,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: 7,
   },
   divider: {
     height: 1,
@@ -239,11 +252,15 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
   },
-  lastRow: {
+  logoutRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 11,
+    paddingHorizontal: 16,
     borderTopWidth: 1,
     borderTopColor: "#1E293B",
-    marginTop: 4,
-    paddingTop: 12,
+    marginTop: 8,
   },
   optionLeft: {
     flexDirection: "row",
@@ -251,11 +268,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   optionLabel: {
-    color: "#94A3B8",
+    color: "#CBD5E1",
     fontSize: 14,
     fontWeight: "500",
   },
   destructiveLabel: {
     color: "#EF4444",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

@@ -7,10 +7,12 @@ export default function SettingsLayout() {
         headerStyle: { backgroundColor: "#070B14" },
         headerTintColor: "#FFFFFF",
         headerTitleStyle: { fontWeight: "600" },
+        headerShown: false,
         headerBackTitle: "Back",
         contentStyle: { backgroundColor: "#070B14" },
       }}
     >
+      <Stack.Screen name="index" options={{ title: "Settings" }} />
       <Stack.Screen name="profile" options={{ title: "Profile" }} />
       <Stack.Screen name="theme" options={{ title: "Theme" }} />
       <Stack.Screen name="voice" options={{ title: "Voice Settings" }} />
