@@ -2,16 +2,18 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Audio } from "expo-av";
 import * as Speech from "expo-speech";
 import { useEffect, useRef, useState } from "react";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 
 import { useAuth } from "@/hooks/useAuth";
-import { detectIntent, IntentResult } from "@/services/ai/intent";
+
 import { askAI } from "@/services/ai/assistant";
+import { detectIntent, IntentResult } from "@/services/ai/intent";
 
 import { createGoogleCalendarEvent } from "@/services/apps/googleServices";
 
 import { saveMemory } from "@/services/firestore/memories";
-import { saveNote } from "@/services/firestore/notes";
+
+import { ActionRouter } from "@/services/router/actionRouter";
 
 import { transcribeAudio } from "@/services/speech/elevenSTT";
 
@@ -34,9 +36,51 @@ export function useVoiceAssistant(
   const { user } = useAuth();
 
   const timerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+
   const isProcessingRef = useRef<boolean>(false);
 
+  /*
+   * ---------------------------------------------------------
+   * Action Router
+   * ---------------------------------------------------------
+   *
+   * Native:
+   *   LocalFileSystemProvider
+   *
+   * Web:
+   *   FirebaseStorageProvider
+   *
+   * We intentionally do NOT create the router directly
+   * inside useRef because that would execute the constructor
+   * during render.
+   */
+
+  const routerRef = useRef<ActionRouter | null>(null);
+
+  useEffect(() => {
+    /*
+     * Web cannot use Expo's native filesystem.
+     * Therefore use Firebase storage on Web.
+     */
+    if (Platform.OS === "web") {
+      if (!user?.uid) {
+        routerRef.current = null;
+        return;
+      }
+
+      routerRef.current = new ActionRouter("firebase", user.uid);
+
+      return;
+    }
+
+    /*
+     * Native Android/iOS can use the local filesystem.
+     */
+    routerRef.current = new ActionRouter("local", user?.uid);
+  }, [user?.uid]);
+
   const [assistantReply, setAssistantReply] = useState<string | null>(null);
+
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
 
   const [permissionResponse, requestPermission] = Audio.usePermissions();
@@ -89,7 +133,9 @@ export function useVoiceAssistant(
       try {
         const stored = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
 
-        if (!stored) return;
+        if (!stored) {
+          return;
+        }
 
         const parsed = JSON.parse(stored);
 
@@ -117,6 +163,7 @@ export function useVoiceAssistant(
   useEffect(() => {
     return () => {
       clearAllTimers();
+
       Speech.stop();
 
       if (recording) {
@@ -162,6 +209,7 @@ export function useVoiceAssistant(
 
       const speechOptions: Speech.SpeechOptions = {
         language: settings.selectedLanguage,
+
         pitch: 1.0,
         rate: 1.0,
 
@@ -205,17 +253,23 @@ export function useVoiceAssistant(
    */
 
   const onRecordingStatusUpdate = (status: Audio.RecordingStatus) => {
-    if (!status.isRecording) return;
+    if (!status.isRecording) {
+      return;
+    }
 
     shouldStopRecording(status.metering ?? -160, stopRecordingAndProcess);
   };
 
   async function startRecording() {
-    if (isProcessingRef.current) return;
+    if (isProcessingRef.current) {
+      return;
+    }
 
     try {
       Speech.stop();
+
       clearAllTimers();
+
       resetVoiceDetection();
 
       const newRecording = await startRecorder(
@@ -257,19 +311,11 @@ export function useVoiceAssistant(
     setRecording(null);
 
     try {
-      /*
-       * Stop recording
-       */
-
       const uri = await stopRecorder(currentRecording);
 
       if (!uri) {
         throw new Error("Recording stopped but no audio URI was returned.");
       }
-
-      /*
-       * Speech-to-text
-       */
 
       console.log("[VoiAst] Transcribing audio...");
 
@@ -285,19 +331,11 @@ export function useVoiceAssistant(
         return;
       }
 
-      /*
-       * Clean wake word
-       */
-
       const cleanedCommand = cleanWakeWordPrefix(recognizedText);
 
       const userSpeech = cleanedCommand || recognizedText.trim();
 
       console.log("[VoiAst] User:", userSpeech);
-
-      /*
-       * Process the meaning of the command.
-       */
 
       await processSpeechInteraction(userSpeech);
     } catch (error) {
@@ -313,57 +351,6 @@ export function useVoiceAssistant(
 
   /*
    * ---------------------------------------------------------
-   * NOTE
-   * ---------------------------------------------------------
-   */
-
-  const handleNoteIntent = async (userSpeech: string, intent: IntentResult) => {
-    if (!user?.uid) {
-      const reply = "Please sign in so I can save your note.";
-
-      setAssistantReply(reply);
-      speakWithExpoSpeech(reply);
-
-      return;
-    }
-
-    try {
-      setState("executing");
-
-      addExecutionStep("Understanding your note...");
-
-      const title = intent.title?.trim() || "VoiAst Note";
-
-      const content = intent.content?.trim() || userSpeech.trim();
-
-      addExecutionStep("Saving note to VoiAst memory...");
-
-      await saveNote(user.uid, title, content);
-
-      addExecutionStep("Note saved successfully!");
-
-      addCompletedTask(title);
-
-      setState("done");
-
-      const reply = "I've saved that as a note.";
-
-      setAssistantReply(reply);
-
-      speakWithExpoSpeech(reply);
-    } catch (error) {
-      console.error("[VoiAst] Note save error:", error);
-
-      const reply = "I couldn't save that note right now.";
-
-      setAssistantReply(reply);
-
-      speakWithExpoSpeech(reply);
-    }
-  };
-
-  /*
-   * ---------------------------------------------------------
    * MEMORY
    * ---------------------------------------------------------
    */
@@ -376,6 +363,7 @@ export function useVoiceAssistant(
       const reply = "Please sign in so I can remember that for you.";
 
       setAssistantReply(reply);
+
       speakWithExpoSpeech(reply);
 
       return;
@@ -512,18 +500,13 @@ ${userSpeech}
    * ---------------------------------------------------------
    * MAIN INTENT PROCESSOR
    * ---------------------------------------------------------
-   *
-   * IMPORTANT:
-   * There are NO keyword checks here.
-   *
-   * VoiAst listens to the entire sentence and lets the
-   * intent classifier determine what the user means.
    */
 
   const processSpeechInteraction = async (userSpeech: string) => {
     clearAllTimers();
 
     setTranscript(userSpeech);
+
     setExecutionSteps([]);
 
     try {
@@ -533,40 +516,109 @@ ${userSpeech}
 
       console.log("[VoiAst Intent]:", intent);
 
-      /*
-       * We don't use an arbitrary confidence threshold.
-       *
-       * The classifier already determines the intent.
-       * If it returns a valid intent, we execute it.
-       */
-
       switch (intent.intent) {
-        case "note":
-          await handleNoteIntent(userSpeech, intent);
+        /*
+         * ---------------------------------------------------
+         * NOTE
+         * ---------------------------------------------------
+         */
+
+        case "note": {
+          setState("executing");
+
+          addExecutionStep("Understanding your note...");
+
+          const title = intent.title?.trim() || "VoiAst Note";
+
+          const content = intent.content?.trim() || userSpeech.trim();
+
+          /*
+           * Make sure the storage provider has been
+           * initialized after authentication.
+           */
+
+          if (!routerRef.current) {
+            if (!user?.uid) {
+              throw new Error("User must be signed in before saving a note.");
+            }
+
+            throw new Error("Storage provider is not initialized yet.");
+          }
+
+          if (Platform.OS === "web") {
+            addExecutionStep("Saving note to cloud storage...");
+          } else {
+            addExecutionStep("Saving note to local storage...");
+          }
+
+          const response = await routerRef.current.handleIntent({
+            intent: "note",
+            title,
+            content,
+          });
+
+          if (!response?.success) {
+            throw new Error("Failed to save note.");
+          }
+
+          console.log("[VoiAst] Note saved:", response.pathOrId);
+
+          if (Platform.OS === "web") {
+            addExecutionStep("Note saved to your account!");
+          } else {
+            addExecutionStep("Note saved locally!");
+          }
+
+          addCompletedTask(title);
+
+          setState("done");
+
+          const reply =
+            Platform.OS === "web"
+              ? "I've saved that note to your account."
+              : "I've saved that as a note on your computer.";
+
+          setAssistantReply(reply);
+
+          speakWithExpoSpeech(reply);
+
           return;
+        }
+
+        /*
+         * ---------------------------------------------------
+         * MEMORY
+         * ---------------------------------------------------
+         */
 
         case "memory":
           await handleMemoryIntent(userSpeech, intent);
           return;
 
+        /*
+         * ---------------------------------------------------
+         * CALENDAR
+         * ---------------------------------------------------
+         */
+
         case "calendar_event":
           await handleCalendarIntent(userSpeech, intent);
           return;
 
+        /*
+         * ---------------------------------------------------
+         * CHAT
+         * ---------------------------------------------------
+         */
+
         case "chat":
         default:
           await handleConversationalFlow(userSpeech);
+
           return;
       }
     } catch (error) {
       console.error("[VoiAst] Intent processing error:", error);
-
-      /*
-       * If intent detection itself fails,
-       * don't accidentally execute an action.
-       *
-       * Safest fallback is normal conversation.
-       */
 
       await handleConversationalFlow(userSpeech);
     }
@@ -581,13 +633,11 @@ ${userSpeech}
   const handleVoicePress = async () => {
     if (state === "idle" || state === "done") {
       await startRecording();
-
       return;
     }
 
     if (state === "listening") {
       await stopRecordingAndProcess();
-
       return;
     }
 
